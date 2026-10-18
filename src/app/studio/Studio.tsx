@@ -38,6 +38,8 @@ type Reference = {
   error: string | null;
   fidelity: Fidelity;
   showAdvanced: boolean;
+  // Came from a ready-made example (replaced when another example is picked).
+  fromExample?: boolean;
 };
 type AudioReference = { key: string; name: string; url: string; uploading: boolean; error: string | null };
 type Beat = { key: string; offset: string; prompt: string };
@@ -85,6 +87,16 @@ function formatElapsed(ms: number) {
   return `${minutes}m ${(total - minutes * 60).toFixed(1)}s`;
 }
 
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Whether the prompt mentions a reference by name; the model only uses photos it is told about. */
+function mentions(prompt: string, name: string) {
+  const trimmed = name.trim();
+  return trimmed.length > 0 && new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegExp(trimmed)}($|[^\\p{L}\\p{N}])`, "iu").test(prompt);
+}
+
+const castLine = (name: string) => `${name} is in this scene; match ${name}'s appearance exactly to the reference photo named ${name}.`;
+
 export default function Studio({
   modelId,
   initialBalanceMc,
@@ -130,6 +142,8 @@ export default function Studio({
   const videoRef = useRef<HTMLVideoElement>(null);
   const sessionRef = useRef<Session | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+  // Names of the reference photos sent with the scene, to spot any the model refuses.
+  const sentRefsRef = useRef<string[]>([]);
   const promptVersionRef = useRef(1);
   const recorderRef = useRef<MovieRecorder | null>(null);
   const startedAtRef = useRef<number | null>(null);
@@ -198,8 +212,12 @@ export default function Studio({
 
   function loadExample(example: Example) {
     setPrompt(example.prompt);
-    setReferences(
-      (example.references ?? []).map((r) => ({ ...newReference(), name: r.name, url: r.url, preview: r.url })),
+    // Keep the user's own photos; only swap the previous example's cast.
+    setReferences((refs) =>
+      [
+        ...(example.references ?? []).map((r) => ({ ...newReference(), name: r.name, url: r.url, preview: r.url, fromExample: true })),
+        ...refs.filter((r) => !r.fromExample),
+      ].slice(0, MAX_REFERENCES),
     );
     setAudioRefs([]);
     setBeats([]);
@@ -358,6 +376,12 @@ export default function Studio({
     sessionRef.current = session;
 
     const parsedSeed = Number.parseInt(seed, 10);
+    // Every photo needs a name the prompt uses; add a casting line for any the prompt never mentions.
+    const castRefs = references
+      .filter((r) => r.url && !r.error)
+      .map((r, i) => ({ ...r, name: r.name.trim() || `Character ${i + 1}` }));
+    const sceneprompt = [prompt.trim(), ...castRefs.filter((r) => !mentions(prompt, r.name)).map((r) => castLine(r.name))].join("\n");
+    sentRefsRef.current = castRefs.map((r) => r.name);
     const script = beats
       .filter((b) => b.prompt.trim())
       .map((b) => ({ offset: Math.max(0, Number(b.offset) || 0), prompt: b.prompt.trim() }))
@@ -366,13 +390,11 @@ export default function Studio({
       type: "configure",
       protocol_version: 1,
       prompt_version: promptVersionRef.current,
-      prompt,
+      prompt: sceneprompt,
       resolution,
       aspect_ratio: aspectRatio,
       ...(Number.isFinite(parsedSeed) ? { seed: parsedSeed } : {}),
-      reference_images: references
-        .filter((r) => r.url && !r.error)
-        .map((r) => ({ url: r.url, name: r.name || null, fidelity: r.fidelity })),
+      reference_images: castRefs.map((r) => ({ url: r.url, name: r.name, fidelity: r.fidelity })),
       reference_audio: audioRefs
         .filter((a) => a.url && !a.error)
         .map((a) => ({ url: a.url, name: a.name || null })),
@@ -407,12 +429,35 @@ export default function Studio({
         );
         setNotice(
           message.reason === "content_policy"
-            ? "That direction was blocked by the content filter."
-            : `That direction couldn't be used (${message.reason}).`,
+            ? "That was blocked by the AI's safety filter."
+            : message.reason === "invalid_image"
+              ? "A reference photo couldn't be used. It may be unreadable, or blocked by the safety filter (for example real public figures)."
+              : `That direction couldn't be used (${message.reason}).`,
         );
         break;
+      case "reference_state": {
+        // The model reports which references it accepted; say so if any photo was dropped.
+        const accepted = new Set(
+          ((message.references as { kind: string; name?: string | null }[]) ?? [])
+            .filter((r) => r.kind === "image")
+            .map((r) => (r.name ?? "").toLowerCase()),
+        );
+        const missing = sentRefsRef.current.filter((n) => !accepted.has(n.toLowerCase()));
+        if (missing.length && accepted.size < sentRefsRef.current.length) {
+          setNotice(
+            `The AI didn't accept ${missing.length === 1 ? "the photo" : "the photos"} for ${missing.join(", ")}. ` +
+              "Its safety filter blocks some photos, for example real public figures or celebrities. Try a different photo.",
+          );
+        }
+        sentRefsRef.current = [];
+        break;
+      }
       case "error":
-        setError(String(message.error ?? message.code));
+        setError(
+          message.code === "content_policy"
+            ? "The AI's safety filter blocked this scene or one of its photos (for example real public figures). Try a different photo or prompt."
+            : String(message.error ?? message.code),
+        );
         break;
       case "stream_exhausted":
         finish(message.reason === "session_limit" ? "You reached the maximum session length." : undefined);
@@ -707,6 +752,23 @@ export default function Studio({
                 </p>
               </div>
 
+              {ref.url && !ref.uploading && !ref.error && !mentions(prompt, ref.name) && (
+                <div className="ref-warn">
+                  {ref.name.trim() ? (
+                    <>
+                      Your prompt doesn’t mention <b>{ref.name.trim()}</b>, so the AI won’t know where to use this photo.{" "}
+                      {!busy && (
+                        <button type="button" className="link-btn"
+                          onClick={() => setPrompt((p) => `${p.trim()}${p.trim() ? "\n" : ""}${castLine(ref.name.trim())}`)}>
+                          Add {ref.name.trim()} to the prompt
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <>Give this photo a name (like the character’s name) and use that name in your prompt.</>
+                  )}
+                </div>
+              )}
               {ref.preview && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img className="ref-preview" src={ref.preview} alt={ref.name || `Reference ${index + 1}`}
@@ -907,6 +969,13 @@ export default function Studio({
                     </div>
                   </div>
                 </div>
+
+                {(notice || error) && (
+                  <div className={`world-toast ${error ? "bad" : ""}`} role="status">
+                    <span>{error ?? notice}</span>
+                    <button type="button" aria-label="Dismiss" onClick={() => { setNotice(null); setError(null); }}>✕</button>
+                  </div>
+                )}
 
                 {status === "live" && stage >= LOADING_STEPS.length && (
                   <div className="world-bottom">
