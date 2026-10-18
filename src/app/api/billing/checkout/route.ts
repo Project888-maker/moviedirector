@@ -25,7 +25,7 @@ export async function POST(req: Request) {
         price_data: {
           currency: "usd",
           unit_amount: parsed.data.amountUsd * 100,
-          product_data: { name: `$${parsed.data.amountUsd} MovieDirector credits` },
+          product_data: { name: `$${parsed.data.amountUsd} AI Movie Director credits` },
         },
       },
     ],

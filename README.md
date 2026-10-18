@@ -1,4 +1,4 @@
-# MovieDirector
+# AI Movie Director
 
 Your own branded website on top of fal.ai's
 [`minimax/h3-max/reference-director`](https://fal.ai/models/minimax/h3-max/reference-director)
@@ -83,7 +83,7 @@ browser's success redirect. Repeated deliveries are ignored.
 | `src/app/api/fal/proxy/route.ts` | Authenticated fal proxy. Meters heartbeats and cuts off users who are out of credit |
 | `src/lib/billing.ts` | Charging logic: per-second debits, race-safe, ends sessions at zero balance |
 | `src/lib/pricing.ts` | fal price, resolution multipliers, markup |
-| `src/app/studio/Studio.tsx` | Director UI: references, prompt, live video, mid-stream directions, recording download |
+| `src/app/studio/Studio.tsx` | fal-style director UI: examples, prompt, reference images/audio, script beats, live video, typed or spoken directions, recording download |
 | `src/app/api/upload/route.ts` | Uploads reference images to fal storage server-side |
 | `src/app/api/billing/*` | Stripe Checkout and webhook |
 | `src/app/billing`, `src/app/admin` | Usage history and the revenue dashboard |

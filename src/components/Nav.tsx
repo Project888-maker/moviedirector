@@ -7,7 +7,7 @@ export default async function Nav() {
   const user = await getCurrentUser();
   return (
     <nav className="nav">
-      <Link href="/" className="brand">🎬 MovieDirector</Link>
+      <Link href="/" className="brand">🎬 AI Movie Director</Link>
       {user ? (
         <>
           <Link href="/studio">Studio</Link>

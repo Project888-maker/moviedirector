@@ -3,7 +3,7 @@ import Nav from "@/components/Nav";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "MovieDirector",
+  title: "AI Movie Director",
   description: "Direct your own AI movie in real time.",
 };
 
