@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createFalClient } from "@fal-ai/client";
 import { wma } from "@fal-ai/client/realtime";
 import { EXAMPLES, type Example } from "./examples";
+import WorldLoader, { LOADING_STEPS } from "./WorldLoader";
 
 const RESOLUTIONS = ["480p", "544p", "640p", "704p", "768p", "1080p", "1440p"] as const;
 const ASPECT_RATIOS = ["16:9", "9:16", "1:1"] as const;
@@ -39,7 +40,7 @@ type Reference = {
 };
 type AudioReference = { key: string; name: string; url: string; uploading: boolean; error: string | null };
 type Beat = { key: string; offset: string; prompt: string };
-type Direction = { version: number; atMs: number; text: string; state: "sent" | "applied" | "rejected"; via: "typed" | "voice" };
+type Direction = { version: number; atMs: number; text: string; state: "sent" | "applied" | "rejected"; via: "world" | "typed" | "voice" };
 type Status = "idle" | "connecting" | "live" | "ended";
 
 // The Web Speech API isn't in TypeScript's DOM types yet.
@@ -101,6 +102,12 @@ export default function Studio({
   const [listening, setListening] = useState(false);
   const [speechLang, setSpeechLang] = useState("en-US");
   const [speechSupported, setSpeechSupported] = useState(true);
+  const [worldMode, setWorldMode] = useState(false);
+  // How many of LOADING_STEPS are done; the movie is showing once all are.
+  const [stage, setStage] = useState(0);
+  const [muted, setMuted] = useState(false);
+  const [sessionMenu, setSessionMenu] = useState(false);
+  const [logExpanded, setLogExpanded] = useState(false);
   const [resolution, setResolution] = useState<Resolution>("768p");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("16:9");
   const [seed, setSeed] = useState("");
@@ -269,6 +276,8 @@ export default function Studio({
     if (recorderRef.current?.state === "recording") recorderRef.current.stop();
     recorderRef.current = null;
     setStatus((s) => (s === "idle" ? s : "ended"));
+    setWorldMode(false);
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     if (message) setNotice(message);
   }, []);
 
@@ -281,7 +290,10 @@ export default function Studio({
     setElapsedMs(0);
     setStartedAt(null);
     startedAtRef.current = null;
-    setDirections([]);
+    setDirections([{ version: 1, atMs: 0, text: prompt.trim(), state: "sent", via: "world" }]);
+    setStage(0);
+    setSessionMenu(false);
+    setLogExpanded(false);
 
     const res = await fetch("/api/sessions", {
       method: "POST",
@@ -296,10 +308,21 @@ export default function Studio({
     sessionIdRef.current = data.id;
     promptVersionRef.current = 1;
     setStatus("connecting");
+    setWorldMode(true);
+
+    // Watch the realtime client's requests to show real progress on the loading screen.
+    const advance = (n: number) => setStage((s) => Math.max(s, n));
+    const trackingFetch: typeof fetch = async (input, init) => {
+      const response = await fetch(input, init);
+      const target = new Headers(init?.headers).get("x-fal-target-url") ?? "";
+      if (response.ok && target.endsWith("/ice")) advance(1);
+      if (response.ok && target.endsWith("/session")) advance(2);
+      return response;
+    };
 
     // Every request the realtime client makes goes through our proxy, tagged with the
     // billing session id. The proxy adds the fal key and meters the heartbeats.
-    const fal = createFalClient({ proxyUrl: `/api/fal/proxy?sid=${data.id}` });
+    const fal = createFalClient({ proxyUrl: `/api/fal/proxy?sid=${data.id}`, fetch: trackingFetch });
     const session = fal.realtime.open(wma(modelId), {
       receive: ["video", "audio"],
       onMedia: (stream) => {
@@ -309,6 +332,7 @@ export default function Studio({
       onData: (raw) => handleMessage(raw),
       onState: (state) => {
         if (state === "live") {
+          setStage((s) => Math.max(s, 3));
           setStatus("live");
           markStarted();
         }
@@ -353,8 +377,12 @@ export default function Studio({
     }
     switch (message.type) {
       case "configured":
+        setStage((s) => Math.max(s, 4));
         setStatus("live");
         markStarted();
+        break;
+      case "chunk":
+        setStage(LOADING_STEPS.length);
         break;
       case "prompt_applied":
         setDirections((list) =>
@@ -447,6 +475,23 @@ export default function Studio({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // World mode covers the page: lock scrolling behind it, and let Escape go back to the studio.
+  useEffect(() => {
+    if (!worldMode) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !document.fullscreenElement && setWorldMode(false);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [worldMode]);
+
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.muted = muted;
+  }, [muted]);
 
   // Bring the directions box into view once the movie starts.
   useEffect(() => {
@@ -771,23 +816,120 @@ export default function Studio({
       </section>
 
       {/* ------------------------------------------------------------------ Result */}
-      <section className="card result-card">
+      <section className={`card result-card ${worldMode ? "world-open" : ""}`}>
         <div className="card-body">
           <div className="section-head">
             <h2 className="card-title" style={{ margin: 0 }}>
               Result <span className={`badge badge-${status}`}>{statusLabel}</span>
             </h2>
-            <button type="button" className="btn" onClick={() => playerRef.current?.requestFullscreen?.()}>
+            <button type="button" className="btn" disabled={!busy} onClick={() => setWorldMode(true)}>
               ⛶ Enter world
             </button>
           </div>
 
-          <div className="player" ref={playerRef}>
-            <video ref={videoRef} autoPlay playsInline controls={status === "live"} />
+          <div className={`player ${worldMode ? "world" : ""}`} ref={playerRef}>
+            <video ref={videoRef} autoPlay playsInline controls={!worldMode && status === "live"}
+              onPlaying={() => setStage(LOADING_STEPS.length)} />
             {status === "idle" && (
               <div className="player-empty"><span>Pick an example or write a prompt, then press <b>Connect</b>.</span></div>
             )}
-            {status === "connecting" && <div className="player-empty"><span>Getting a GPU ready… this can take a moment.</span></div>}
+            {busy && stage < LOADING_STEPS.length && <WorldLoader stage={stage} />}
+
+            {worldMode && (
+              <>
+                <div className="world-top">
+                  <div className="row world-group">
+                    <button type="button" className="world-btn" title="Back to studio (Esc)" onClick={() => setWorldMode(false)}>←</button>
+                    <span className="world-pill">🎬 AI Movie Director</span>
+                    <span className="world-pill hide-sm">H3 Max Reference Director</span>
+                  </div>
+                  <div className="row world-group">
+                    <button type="button" className="world-btn" title={muted ? "Unmute" : "Mute"} onClick={() => setMuted((m) => !m)}>
+                      {muted ? "🔇" : "🔊"}
+                    </button>
+                    <button type="button" className="world-btn" title="Full screen"
+                      onClick={() => (document.fullscreenElement ? document.exitFullscreen() : playerRef.current?.requestFullscreen?.())}>
+                      ⛶
+                    </button>
+                    <div className="session-menu">
+                      <button type="button" className="world-btn" onClick={() => setSessionMenu((v) => !v)}>
+                        <span className={`dot ${status === "live" ? "live" : ""}`} /> Session ▾
+                      </button>
+                      {sessionMenu && (
+                        <div className="session-pop">
+                          <p><span className="muted">Status</span> <b>{statusLabel}</b></p>
+                          <p><span className="muted">Time</span> <b>{formatElapsed(elapsedMs)}</b></p>
+                          <p><span className="muted">Cost so far</span> <b>{usd(Math.max(spentMc, estimatedCostMc), 2)}</b></p>
+                          <p><span className="muted">Balance</span> <b>{usd(balanceMc)}</b></p>
+                          <button type="button" className="btn dark" style={{ width: "100%" }} onClick={() => finish("Session stopped.")}>
+                            Stop session
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {status === "live" && stage >= LOADING_STEPS.length && (
+                  <div className="world-bottom">
+                    <div className={`world-log ${logExpanded ? "expanded" : ""}`}>
+                      {(logExpanded ? directions : directions.slice(-1)).map((d) => {
+                        const isNow = d.version === [...directions].reverse().find((x) => x.state === "applied")?.version;
+                        return (
+                          <div key={d.version} className={`world-log-item direction-${d.state}`}>
+                            <div className="world-log-meta">
+                              <code>{formatClock(d.atMs)}</code>
+                              <b>{d.via === "world" ? "World" : d.via === "voice" ? "🎤 Voice" : "Direction"}</b>
+                              {isNow && <span className="now">Now</span>}
+                              {d.state === "sent" && <span className="muted">sending…</span>}
+                              {d.state === "rejected" && <span className="rejected">rejected</span>}
+                            </div>
+                            <p>{d.text}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="world-compose">
+                      <button type="button" className="world-expand" title={logExpanded ? "Show less" : "Show all directions"}
+                        onClick={() => setLogExpanded((v) => !v)}>
+                        {logExpanded ? "▾" : "▴"}
+                      </button>
+                      <textarea
+                        rows={2}
+                        value={direction}
+                        placeholder={listening ? "Listening… just speak" : "What should happen next?"}
+                        onChange={(e) => setDirection(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+                            e.preventDefault();
+                            sendDirection(direction, "typed");
+                          }
+                        }}
+                      />
+                      <div className="world-compose-bar">
+                        {speechSupported && (
+                          <select className="lang dark" value={speechLang} disabled={listening} aria-label="Speech language"
+                            onChange={(e) => setSpeechLang(e.target.value)}>
+                            {SPEECH_LANGUAGES.map(([code, label]) => <option key={code} value={code}>{label}</option>)}
+                          </select>
+                        )}
+                        <span style={{ flex: 1 }} />
+                        <button type="button" className={`world-btn mic ${listening ? "on" : ""}`}
+                          title={speechSupported ? (listening ? "Stop listening" : "Speak your direction") : "Voice input isn't supported in this browser"}
+                          disabled={!speechSupported}
+                          onClick={() => (listening ? stopListening() : startListening())}>
+                          {listening ? "■ Listening" : "🎤"}
+                        </button>
+                        <button type="button" className="world-send" disabled={!direction.trim()}
+                          onClick={() => sendDirection(direction, "typed")}>
+                          Send prompt ↵
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           {status !== "idle" && (
