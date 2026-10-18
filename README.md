@@ -47,11 +47,13 @@ Remember that Stripe takes roughly 2.9% + 30¢ per top-up, so keep the markup ab
 ## Setup
 
 ```bash
-cp .env.example .env      # fill in FAL_KEY, AUTH_SECRET, Stripe keys
+cp .env.example .env      # fill in FAL_KEY, AUTH_SECRET, DATABASE_URL, Stripe keys
 npm install
-npm run db:push           # creates the SQLite dev database
+npm run db:push           # creates the tables in your Postgres database
 npm run dev               # http://localhost:3000
 ```
+
+Any Postgres works. A free Neon database is the easiest; you can use the same one as Vercel.
 
 Stripe webhooks in development:
 
@@ -65,12 +67,14 @@ browser's success redirect. Repeated deliveries are ignored.
 
 ## Deploying
 
-1. Change `provider = "sqlite"` to `"postgresql"` in `prisma/schema.prisma` and point
-   `DATABASE_URL` at a hosted Postgres database (Neon, Supabase, Vercel Postgres…).
-2. Deploy to Vercel (or any Node host) with the env vars from `.env.example`.
-3. In the Stripe dashboard, add a webhook endpoint at `https://your-domain/api/billing/webhook`
+1. Import the repo into Vercel (framework: Next.js; no build settings to change).
+2. In the project, open **Storage → Create Database → Neon (Postgres)** and connect it. This sets
+   `DATABASE_URL`. Every build then runs `vercel-build`, which creates or updates the tables.
+3. Add the env vars from `.env.example` under **Settings → Environment Variables**, with
+   `APP_URL` set to your site's address, and redeploy.
+4. In the Stripe dashboard, add a webhook endpoint at `https://your-domain/api/billing/webhook`
    for `checkout.session.completed` and `checkout.session.async_payment_succeeded`.
-4. Add your email to `ADMIN_EMAILS` to open `/admin`.
+5. Add your email to `ADMIN_EMAILS` to open `/admin`.
 
 ## Project layout
 
