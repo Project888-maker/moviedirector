@@ -1,0 +1,50 @@
+// SQLite for local development. Switch provider to "postgresql" for production.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Money is stored as integer "millicents": 1 USD = 100,000 mc.
+model User {
+  id           String          @id @default(cuid())
+  email        String          @unique
+  passwordHash String
+  balanceMc    Int             @default(0)
+  createdAt    DateTime        @default(now())
+  sessions     RenderSession[]
+  topUps       TopUp[]
+}
+
+model RenderSession {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  resolution    String
+  // pending -> active -> ended
+  status        String    @default("pending")
+  falSessionId  String?   @unique
+  startedAt     DateTime?
+  lastChargedAt DateTime?
+  endedAt       DateTime?
+  endReason     String?
+  billedSeconds Float     @default(0)
+  // What the user paid vs. what fal charged you. The difference is your profit.
+  chargedMc     Int       @default(0)
+  falCostMc     Int       @default(0)
+  createdAt     DateTime  @default(now())
+
+  @@index([userId, status])
+}
+
+model TopUp {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  stripeSessionId String   @unique
+  amountMc        Int
+  createdAt       DateTime @default(now())
+}
