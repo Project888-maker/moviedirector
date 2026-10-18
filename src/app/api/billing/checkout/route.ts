@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
 import { jsonError } from "@/lib/http";
-import { TOP_UP_AMOUNTS_USD, stripe } from "@/lib/stripe";
+import { CHECKOUT_APP_TAG, TOP_UP_AMOUNTS_USD, stripe } from "@/lib/stripe";
 
 const schema = z.object({
   amountUsd: z.number().refine((n) => (TOP_UP_AMOUNTS_USD as readonly number[]).includes(n)),
@@ -29,7 +29,8 @@ export async function POST(req: Request) {
         },
       },
     ],
-    metadata: { userId: user.id },
+    metadata: { app: CHECKOUT_APP_TAG, userId: user.id },
+    payment_intent_data: { description: "AI Movie Director credits", metadata: { app: CHECKOUT_APP_TAG } },
     success_url: `${appUrl}/billing?success=1`,
     cancel_url: `${appUrl}/billing?canceled=1`,
   });
