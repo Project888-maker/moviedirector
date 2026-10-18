@@ -2,17 +2,35 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { formatUsd } from "@/lib/pricing";
-import { TOP_UP_AMOUNTS_USD } from "@/lib/stripe";
+import { TOP_UP_AMOUNTS_USD, stripe } from "@/lib/stripe";
+import { creditCheckoutSession } from "@/lib/topups";
 import TopUpButton from "./TopUpButton";
 
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ success?: string; canceled?: string }>;
+  searchParams: Promise<{ success?: string; canceled?: string; session_id?: string }>;
 }) {
-  const user = await getCurrentUser();
+  let user = await getCurrentUser();
   if (!user) redirect("/login");
-  const { success, canceled } = await searchParams;
+  const { success, canceled, session_id: sessionId } = await searchParams;
+
+  // Back from Stripe Checkout: confirm the payment with Stripe directly so credit shows up
+  // immediately, even if the webhook is slow or misconfigured. Crediting is idempotent.
+  let paid = Boolean(success);
+  if (sessionId?.startsWith("cs_")) {
+    try {
+      const checkout = await stripe().checkout.sessions.retrieve(sessionId);
+      if (checkout.metadata?.userId === user.id && checkout.payment_status === "paid") {
+        paid = true;
+        if (await creditCheckoutSession(checkout)) {
+          user = (await getCurrentUser()) ?? user;
+        }
+      }
+    } catch (error) {
+      console.error("Could not confirm Checkout Session", sessionId, error);
+    }
+  }
 
   const [topUps, sessions] = await Promise.all([
     db.topUp.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 20 }),
@@ -28,7 +46,7 @@ export default async function BillingPage({
       <section className="panel">
         <h1>Credits</h1>
         <p>Balance: <b>{formatUsd(user.balanceMc)}</b></p>
-        {success && <p className="success">Payment received. Credits appear as soon as Stripe confirms it.</p>}
+        {paid && <p className="success">Payment received. Thank you! Your credit has been added.</p>}
         {canceled && <p className="muted">Checkout canceled.</p>}
         <div className="grid cards">
           {TOP_UP_AMOUNTS_USD.map((amount) => (

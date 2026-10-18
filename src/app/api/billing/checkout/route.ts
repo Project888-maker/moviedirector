@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     ],
     metadata: { app: CHECKOUT_APP_TAG, userId: user.id },
     payment_intent_data: { description: "AI Movie Director credits", metadata: { app: CHECKOUT_APP_TAG } },
-    success_url: `${appUrl}/billing?success=1`,
+    success_url: `${appUrl}/billing?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${appUrl}/billing?canceled=1`,
   });
   return NextResponse.json({ url: checkout.url });
