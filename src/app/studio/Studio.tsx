@@ -574,7 +574,7 @@ export default function Studio({
                 disabled={busy}
                 onClick={() => loadExample(example)}
               >
-                <span className="example-cover" style={{ background: example.cover }}>{example.emoji}</span>
+                <span className="example-cover" style={{ backgroundImage: `url(${example.cover})` }} />
                 <span className="example-title">{example.title}</span>
                 <span className="example-meta">
                   {example.collection}
