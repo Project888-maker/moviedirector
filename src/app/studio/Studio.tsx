@@ -6,6 +6,7 @@ import { createFalClient } from "@fal-ai/client";
 import { wma } from "@fal-ai/client/realtime";
 import { EXAMPLES, type Example } from "./examples";
 import WorldLoader, { LOADING_STEPS } from "./WorldLoader";
+import { MovieRecorder, type Recording } from "./recorder";
 
 const RESOLUTIONS = ["480p", "544p", "640p", "704p", "768p", "1080p", "1440p"] as const;
 const ASPECT_RATIOS = ["16:9", "9:16", "1:1"] as const;
@@ -119,15 +120,18 @@ export default function Studio({
   const [elapsedMs, setElapsedMs] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [recording, setRecording] = useState<string | null>(null);
+  const [recording, setRecording] = useState<Recording | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [showResult, setShowResult] = useState(false);
+  // Safety net: stop automatically after this many minutes (0 = no limit).
+  const [maxMinutes, setMaxMinutes] = useState(2);
 
   const playerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const sessionRef = useRef<Session | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const promptVersionRef = useRef(1);
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const recorderRef = useRef<MovieRecorder | null>(null);
   const startedAtRef = useRef<number | null>(null);
   const recognitionRef = useRef<Recognition | null>(null);
   const wantListeningRef = useRef(false);
@@ -247,16 +251,14 @@ export default function Studio({
   }
 
   function startRecording(stream: MediaStream) {
-    if (typeof MediaRecorder === "undefined" || recorderRef.current) return;
-    chunksRef.current = [];
-    const recorder = new MediaRecorder(stream);
-    recorder.ondataavailable = (e) => e.data.size > 0 && chunksRef.current.push(e.data);
-    recorder.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "video/webm" });
-      setRecording(URL.createObjectURL(blob));
-    };
-    recorder.start(1000);
-    recorderRef.current = recorder;
+    if (recorderRef.current || !videoRef.current || !MovieRecorder.supported()) return;
+    try {
+      const recorder = new MovieRecorder(videoRef.current, stream);
+      recorder.start();
+      recorderRef.current = recorder;
+    } catch (error) {
+      console.error("Recording unavailable", error);
+    }
   }
 
   const finish = useCallback((message?: string) => {
@@ -273,9 +275,17 @@ export default function Studio({
       session.close();
     }
     if (sessionIdRef.current) navigator.sendBeacon(`/api/sessions/${sessionIdRef.current}/end`);
-    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+    const recorder = recorderRef.current;
     recorderRef.current = null;
+    if (recorder) {
+      setSaving(true);
+      recorder.stop().then((file) => {
+        setRecording(file);
+        setSaving(false);
+      });
+    }
     setStatus((s) => (s === "idle" ? s : "ended"));
+    if (session || recorder) setShowResult(true);
     setWorldMode(false);
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     if (message) setNotice(message);
@@ -285,7 +295,9 @@ export default function Studio({
     if (!canConnect) return;
     setError(null);
     setNotice(null);
+    if (recording) URL.revokeObjectURL(recording.url);
     setRecording(null);
+    setShowResult(false);
     setSpentMc(0);
     setElapsedMs(0);
     setStartedAt(null);
@@ -498,6 +510,13 @@ export default function Studio({
     if (status === "live") directionsRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [status]);
 
+  // Stop automatically at the chosen length so a forgotten tab can't drain the balance.
+  useEffect(() => {
+    if (status === "live" && maxMinutes > 0 && elapsedMs >= maxMinutes * 60_000) {
+      finish(`Stopped automatically at your ${maxMinutes}-minute limit.`);
+    }
+  }, [status, elapsedMs, maxMinutes, finish]);
+
   // Session timer.
   useEffect(() => {
     if (status !== "live" || !startedAt) return;
@@ -610,6 +629,15 @@ export default function Studio({
             <option value="9:16">9:16 — vertical (phones, Reels, TikTok)</option>
             <option value="1:1">1:1 — square</option>
           </select>
+
+          <label className="field-label" htmlFor="maxlen">Stop automatically after</label>
+          <select id="maxlen" value={maxMinutes} disabled={busy} onChange={(e) => setMaxMinutes(Number(e.target.value))}>
+            {[1, 2, 5, 10].map((m) => (
+              <option key={m} value={m}>{m} minute{m > 1 ? "s" : ""} (up to {usd(price.perSecondMc * 60 * m)})</option>
+            ))}
+            <option value={0}>No limit (stop it yourself)</option>
+          </select>
+          <p className="hint">A safety limit so a forgotten session can’t use up your credit.</p>
 
           <div className="section-head">
             <span className="field-label" style={{ margin: 0 }}>Reference images</span>
@@ -843,6 +871,16 @@ export default function Studio({
                     <span className="world-pill">🎬 AI Movie Director</span>
                     <span className="world-pill hide-sm">H3 Max Reference Director</span>
                   </div>
+                  {status === "live" && (
+                    <div className={`world-meter ${maxMinutes > 0 && maxMinutes * 60_000 - elapsedMs < 15_000 ? "warn" : ""}`}>
+                      <span className="dot live" />
+                      <b>{formatClock(elapsedMs)}</b>
+                      {maxMinutes > 0 && <span className="muted"> / {maxMinutes}:00</span>}
+                      <span className="sep" />
+                      <b>{usd(Math.max(spentMc, estimatedCostMc))}</b>
+                      <span className="muted hide-sm"> · {usd(Math.max(0, balanceMc - Math.max(spentMc, estimatedCostMc)))} left</span>
+                    </div>
+                  )}
                   <div className="row world-group">
                     <button type="button" className="world-btn" title={muted ? "Unmute" : "Mute"} onClick={() => setMuted((m) => !m)}>
                       {muted ? "🔇" : "🔊"}
@@ -991,8 +1029,12 @@ export default function Studio({
               {status === "idle" && "No session yet"}
             </span>
             <span className="row" style={{ flex: "none" }}>
+              {saving && <span className="muted">Saving your movie…</span>}
               {recording && (
-                <a className="btn" href={recording} download="my-movie.webm">⬇ Download recording</a>
+                <>
+                  <button type="button" className="btn" onClick={() => setShowResult(true)}>▶ Watch</button>
+                  <a className="btn" href={recording.url} download={`ai-movie.${recording.extension}`}>⬇ Download movie</a>
+                </>
               )}
               {busy ? (
                 <button type="button" className="btn dark" onClick={() => finish()}>Stop</button>
@@ -1005,15 +1047,18 @@ export default function Studio({
           {notice && <p className="notice">{notice}</p>}
 
           <div className="cost">
-            <p>Sessions cost <b>{usd(price.perSecondMc, 4)}</b> per second of video at {resolution}.</p>
+            <p>
+              Filming costs <b>{usd(price.perSecondMc * 60)} per minute</b> at {resolution}, billed by the second
+              ({usd(price.perSecondMc, 3)}/sec).
+            </p>
             {status !== "idle" && (
               <p>
                 {status === "ended" ? "This session cost" : "Estimated cost so far"}{" "}
-                <b>{usd(status === "ended" && spentMc > 0 ? spentMc : Math.max(spentMc, estimatedCostMc), 4)}</b>.
+                <b>{usd(status === "ended" && spentMc > 0 ? spentMc : Math.max(spentMc, estimatedCostMc))}</b>.
               </p>
             )}
             <p>
-              Your balance: <b>{usd(balanceMc)}</b> (about {Math.floor(balanceMc / price.perSecondMc / 60)} min at {resolution}).{" "}
+              Your balance: <b>{usd(balanceMc)}</b> (about {formatClock((balanceMc / price.perSecondMc) * 1000)} min at {resolution}).{" "}
               <Link href="/billing">Top up</Link>
             </p>
             {balanceMc < price.minStartMc && !busy && (
@@ -1022,6 +1067,42 @@ export default function Studio({
           </div>
         </div>
       </section>
+
+      {showResult && (
+        <div className="result-modal" role="dialog" aria-modal="true" aria-label="Your movie">
+          <div className="result-modal-card">
+            <div className="section-head" style={{ marginTop: 0 }}>
+              <h2 className="card-title" style={{ margin: 0 }}>Your movie is ready</h2>
+              <button type="button" className="link-btn" onClick={() => setShowResult(false)} aria-label="Close">✕</button>
+            </div>
+            {saving && <div className="result-modal-wait">Saving your movie…</div>}
+            {!saving && recording && (
+              <video className="result-modal-video" src={recording.url} controls autoPlay playsInline />
+            )}
+            {!saving && !recording && (
+              <div className="result-modal-wait">
+                This browser couldn’t record the session. Try Chrome or Edge on a computer to save your movies.
+              </div>
+            )}
+            <div className="result-modal-stats">
+              <span>Length <b>{formatElapsed(elapsedMs)}</b></span>
+              <span>Cost <b>{usd(spentMc > 0 ? spentMc : estimatedCostMc)}</b></span>
+              <span>Balance <b>{usd(balanceMc)}</b></span>
+            </div>
+            <p className="hint" style={{ marginTop: 0 }}>
+              Movies are saved in this browser only. Download it now to keep it.
+            </p>
+            <div className="row" style={{ justifyContent: "flex-end" }}>
+              <button type="button" className="btn" onClick={() => setShowResult(false)}>Close</button>
+              {recording && (
+                <a className="btn primary" href={recording.url} download={`ai-movie.${recording.extension}`}>
+                  ⬇ Download movie ({(recording.size / 1_000_000).toFixed(1)} MB)
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
