@@ -456,7 +456,9 @@ export default function Studio({
         setError(
           message.code === "content_policy"
             ? "The AI's safety filter blocked this scene or one of its photos (for example real public figures). Try a different photo or prompt."
-            : String(message.error ?? message.code),
+            : message.code === "balance_unavailable"
+              ? "Filming is temporarily unavailable. Please try again in a few minutes. You haven't been charged for this attempt."
+              : String(message.error ?? message.code),
         );
         break;
       case "stream_exhausted":
