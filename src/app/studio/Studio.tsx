@@ -12,6 +12,10 @@ const RESOLUTIONS = ["480p", "544p", "640p", "704p", "768p", "1080p", "1440p"] a
 const ASPECT_RATIOS = ["16:9", "9:16", "1:1"] as const;
 const FIDELITIES = ["high", "medium", "low"] as const;
 const MAX_REFERENCES = 9;
+const FATAL_ERRORS = new Set([
+  "balance_unavailable", "configuration_timeout", "generation_failed", "generation_timeout",
+  "initialization_timeout", "invalid_initial_image", "invalid_initial_audio", "invalid_initial_script",
+]);
 const MC_PER_USD = 100_000;
 const MAX_AUDIO = 3;
 const MAX_BEATS = 64;
@@ -457,9 +461,11 @@ export default function Studio({
           message.code === "content_policy"
             ? "The AI's safety filter blocked this scene or one of its photos (for example real public figures). Try a different photo or prompt."
             : message.code === "balance_unavailable"
-              ? "Filming is temporarily unavailable. Please try again in a few minutes. You haven't been charged for this attempt."
+              ? "Filming is temporarily unavailable. Please try again in a few minutes."
               : String(message.error ?? message.code),
         );
+        // These end the session on the model's side; stop here too so billing stops with it.
+        if (FATAL_ERRORS.has(String(message.code))) finish();
         break;
       case "stream_exhausted":
         finish(message.reason === "session_limit" ? "You reached the maximum session length." : undefined);
