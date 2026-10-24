@@ -17,6 +17,7 @@ model User {
   createdAt    DateTime        @default(now())
   sessions     RenderSession[]
   topUps       TopUp[]
+  jobs         Job[]
 }
 
 model RenderSession {
@@ -47,4 +48,31 @@ model TopUp {
   stripeSessionId String   @unique
   amountMc        Int
   createdAt       DateTime @default(now())
+}
+
+// One generation from the Create playground (a clip, image, voice or edit), run on fal's queue.
+model Job {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  toolId       String
+  endpoint     String
+  // queued -> running -> done | failed
+  status       String    @default("queued")
+  prompt       String?
+  input        Json
+  outputType   String
+  outputUrls   String[]  @default([])
+  error        String?
+  falRequestId String?
+  statusUrl    String?
+  responseUrl  String?
+  // The price is fixed up front; a failed job is refunded once.
+  chargedMc    Int
+  falCostMc    Int
+  refunded     Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  completedAt  DateTime?
+
+  @@index([userId, createdAt])
 }

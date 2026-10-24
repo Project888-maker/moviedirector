@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
-import { priceTable } from "@/lib/pricing";
+import { formatUsd, markupPercent, priceTable } from "@/lib/pricing";
+import { GOALS, TOOLS, typicalPriceMc } from "@/lib/tools";
 import { TOP_UP_AMOUNTS_USD } from "@/lib/stripe";
 import HeroReel from "@/components/landing/HeroReel";
 import LoopVideo from "@/components/landing/LoopVideo";
@@ -51,7 +52,7 @@ const FAQ = [
   },
   {
     q: "How much does a movie cost?",
-    a: "You pay per second of footage. A one-minute scene costs from about $4 depending on resolution. The studio shows your cost and remaining balance live, and stops automatically when your credit runs out.",
+    a: "It depends on the tool. Quick clips and images cost a few cents, a cast scene is about 10 to 50 cents, and the live studio is billed per second (from about $4 a minute). You always see the price before you start, and failed generations are refunded.",
   },
   {
     q: "Can I use my own characters?",
@@ -96,7 +97,7 @@ export default async function Home() {
             </p>
             <div className="lp-cta-row">
               <Link href={startHref} className="lp-btn primary">Start directing</Link>
-              <a href="#how" className="lp-btn ghost">See how it works</a>
+              <Link href="/create" className="lp-btn ghost">Explore all tools</Link>
             </div>
             <ul className="lp-proof">
               <li>Up to 1440p</li>
@@ -160,6 +161,33 @@ export default async function Home() {
             <p>Press Connect and the film starts. Type or speak what happens next and watch the story change.</p>
           </article>
         </div>
+      </section>
+
+      {/* ------------------------------------------------------------------ Tools */}
+      <section className="lp-section" id="tools">
+        <div className="lp-head">
+          <span className="lp-kicker">Create</span>
+          <h2>A tool for every idea and every budget</h2>
+          <p className="lp-sub">
+            From a few cents for a quick test to cinema-grade shots. Pick Budget, Standard or Premium and see the price
+            before you generate.
+          </p>
+        </div>
+        <div className="lp-tools">
+          {GOALS.map((goal) => {
+            const tools = TOOLS.filter((t) => t.goal === goal.id);
+            const from = Math.min(...tools.map((t) => typicalPriceMc(t, markupPercent)));
+            return (
+              <Link key={goal.id} href={`/create?tool=${tools[0].id}`} className="lp-tool">
+                <span className="lp-feature-icon"><Icon d={goal.icon} /></span>
+                <h3>{goal.title}</h3>
+                <p>{goal.description}</p>
+                <span className="lp-tool-from">{tools.length} tools · from about {formatUsd(from)}</span>
+              </Link>
+            );
+          })}
+        </div>
+        <p className="lp-topups"><Link href="/guide">Read the guide: make a 1-minute short film for about $5 →</Link></p>
       </section>
 
       {/* ------------------------------------------------------------------ Gallery */}
