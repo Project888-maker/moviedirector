@@ -169,7 +169,10 @@ export default function Playground({ markup, signedIn, initialBalanceMc, initial
             New here? Read the <Link href="/guide">movie-making guide</Link>.
           </p>
         </div>
-        <Link href="/library" className="btn">My creations</Link>
+        <div className="row">
+          <Link href="/director" className="btn primary">Ask the AI Director</Link>
+          <Link href="/library" className="btn">My creations</Link>
+        </div>
       </header>
 
       {/* ------------------------------------------------------------ 1. goal */}

@@ -85,6 +85,7 @@ browser's success redirect. Repeated deliveries are ignored.
 | `src/lib/pricing.ts` | fal price, resolution multipliers, markup |
 | `src/lib/tools.ts` | Create playground tool catalog: models, forms, prices, tips |
 | `src/lib/jobs.ts` | Create jobs: charge up front, run on fal's queue, refund failures |
+| `src/lib/director/` | AI Director agent (Claude Opus 5.5): system prompt, tools, streaming loop with approvals |
 | `src/app/studio/Studio.tsx` | fal-style director UI: examples, prompt, reference images/audio, script beats, live video, typed or spoken directions, recording download |
 | `src/app/api/upload/route.ts` | Uploads reference images to fal storage server-side |
 | `src/app/api/billing/*` | Stripe Checkout and webhook |

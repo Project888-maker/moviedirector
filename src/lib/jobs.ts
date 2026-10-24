@@ -70,7 +70,7 @@ export function quote(tool: Tool, values: Values, durations: Durations) {
 }
 
 /** Debits the user, records the job and submits it to fal. Refunds if fal refuses it. */
-export async function createJob(userId: string, tool: Tool, values: Values): Promise<Job> {
+export async function createJob(userId: string, tool: Tool, values: Values, chatId?: string): Promise<Job> {
   const durations = await measure(tool, values);
   const { falCostMc, chargedMc } = quote(tool, values, durations);
   const input = tool.input(values, durations);
@@ -92,6 +92,7 @@ export async function createJob(userId: string, tool: Tool, values: Values): Pro
         outputType: tool.output,
         chargedMc,
         falCostMc,
+        chatId,
       },
     });
   });

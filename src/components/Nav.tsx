@@ -11,6 +11,7 @@ export default async function Nav() {
       <Link href="/" className="brand" aria-label="AI Movie Director home"><Logo /></Link>
       {user ? (
         <>
+          <Link href="/director" className="nav-director">AI Director</Link>
           <Link href="/create">Create</Link>
           <Link href="/studio">Live studio</Link>
           <Link href="/library" className="hide-sm">My creations</Link>

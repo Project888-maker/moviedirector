@@ -18,6 +18,7 @@ model User {
   sessions     RenderSession[]
   topUps       TopUp[]
   jobs         Job[]
+  chats        DirectorChat[]
 }
 
 model RenderSession {
@@ -73,6 +74,33 @@ model Job {
   refunded     Boolean   @default(false)
   createdAt    DateTime  @default(now())
   completedAt  DateTime?
+  // Set when the AI Director started the job; `notified` once the Director has been told it finished.
+  chatId       String?
+  notified     Boolean   @default(false)
 
   @@index([userId, createdAt])
+  @@index([chatId])
+}
+
+// A conversation with the AI Director agent.
+model DirectorChat {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  title       String   @default("New chat")
+  // The Claude conversation, append-only (thinking blocks must be replayed unchanged).
+  messages    Json     @default("[]")
+  // Generations waiting for the user's approval, and the tool results already computed for that turn.
+  pending     Json?
+  effort      String   @default("medium")
+  askApproval Boolean  @default(true)
+  // What the assistant itself has cost the user so far (generations are counted on their jobs).
+  aiChargedMc Int      @default(0)
+  aiCostMc    Int      @default(0)
+  // Held while a reply is being generated, so two replies never run on one chat at once.
+  lockedUntil DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, updatedAt])
 }

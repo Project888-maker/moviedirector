@@ -174,6 +174,12 @@ export default async function Home() {
           </p>
         </div>
         <div className="lp-tools">
+          <Link href={user ? "/director" : "/signup"} className="lp-tool lp-tool-director">
+            <span className="lp-feature-icon"><Icon d="M13 2 4 14h7l-1 8 9-12h-7z" /></span>
+            <h3>AI Director</h3>
+            <p>Just describe your idea. It picks the tools, asks for your photos, shows the price, makes it and checks the result.</p>
+            <span className="lp-tool-from">Powered by Claude Opus 5.5 · usually 5–30¢ per message</span>
+          </Link>
           {GOALS.map((goal) => {
             const tools = TOOLS.filter((t) => t.goal === goal.id);
             const from = Math.min(...tools.map((t) => typicalPriceMc(t, markupPercent)));
