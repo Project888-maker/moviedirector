@@ -91,6 +91,7 @@ export default function Mirror({ perSecondMc, minStartMc, initialBalanceMc }: { 
   const sessionIdRef = useRef<string | null>(null);
   const recorderRef = useRef<MovieRecorder | null>(null);
   const versionRef = useRef(0);
+  const firstFrameRef = useRef(false);
   const recognitionRef = useRef<Recognition | null>(null);
   const wantListeningRef = useRef(false);
 
@@ -163,8 +164,12 @@ export default function Mirror({ perSecondMc, minStartMc, initialBalanceMc }: { 
     el.play().catch(() => {});
   }, [source, fileUrl]);
 
-  /** A file is drawn onto a canvas at the model's size, so any video shape works. */
-  function fileStream(): MediaStream | null {
+  /**
+   * The model only accepts exactly 1280x704 at 24 fps, so the camera or file is drawn onto a canvas
+   * at that size (cover-fit) and the canvas is what gets sent. Cameras deliver 720p, 480p or
+   * portrait shapes, and anything else comes back black.
+   */
+  function canvasStream(): MediaStream | null {
     const el = inputVideoRef.current;
     if (!el) return null;
     const canvas = document.createElement("canvas");
@@ -250,7 +255,7 @@ export default function Mirror({ perSecondMc, minStartMc, initialBalanceMc }: { 
     versionRef.current = 1;
     setLooks([{ version: 1, text: prompt.trim(), state: "sent" }]);
 
-    const localStream = source === "webcam" ? new MediaStream(camStreamRef.current?.getVideoTracks() ?? []) : fileStream();
+    const localStream = canvasStream();
     if (!localStream || !localStream.getVideoTracks().length) {
       setError("No video to send. Turn on your camera or choose a video.");
       return;
@@ -265,6 +270,7 @@ export default function Mirror({ perSecondMc, minStartMc, initialBalanceMc }: { 
       return;
     }
     sessionIdRef.current = data.id;
+    firstFrameRef.current = false;
     setStatus("connecting");
 
     const advance = (n: number) => setStage((s) => Math.max(s, n));
@@ -282,7 +288,12 @@ export default function Mirror({ perSecondMc, minStartMc, initialBalanceMc }: { 
       receive: ["video"],
       localStream,
       onMedia: (stream) => {
-        if (outputVideoRef.current) outputVideoRef.current.srcObject = stream;
+        const video = outputVideoRef.current;
+        if (video) {
+          video.srcObject = stream;
+          video.play().catch(() => {});
+          watchFirstFrame(video);
+        }
         if (!recorderRef.current && outputVideoRef.current && MovieRecorder.supported()) {
           try {
             const audio = recordingAudio();
@@ -296,6 +307,7 @@ export default function Mirror({ perSecondMc, minStartMc, initialBalanceMc }: { 
       },
       onData: (raw) => handleMessage(raw),
       onState: (state) => {
+        console.info("[mirror] state", state);
         if (state === "live") advance(3);
         if (state === "closed" || state === "failed") finish();
       },
@@ -314,6 +326,22 @@ export default function Mirror({ perSecondMc, minStartMc, initialBalanceMc }: { 
     session.send({ type: "configure", prompt: prompt.trim(), enable_prompt_expansion: enhance });
   }
 
+  /** The session counts as live (and billable without refund) only once a restyled frame is on screen. */
+  function watchFirstFrame(video: HTMLVideoElement) {
+    const shown = () => {
+      if (firstFrameRef.current || !sessionRef.current) return;
+      firstFrameRef.current = true;
+      console.info("[mirror] first frame", video.videoWidth, "x", video.videoHeight);
+      setStage(STEPS.length);
+      setStatus("live");
+      setStartedAt(Date.now());
+      if (sessionIdRef.current) fetch(`/api/sessions/${sessionIdRef.current}/live`, { method: "POST" }).catch(() => {});
+    };
+    const withCallback = video as HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number };
+    if (withCallback.requestVideoFrameCallback) withCallback.requestVideoFrameCallback(shown);
+    else video.addEventListener("loadeddata", shown, { once: true });
+  }
+
   function handleMessage(raw: string) {
     let message: { type?: string; [key: string]: unknown };
     try {
@@ -321,14 +349,14 @@ export default function Mirror({ perSecondMc, minStartMc, initialBalanceMc }: { 
     } catch {
       return;
     }
+    if (message.type !== "stats" && message.type !== "pong") console.info("[mirror]", message);
     switch (message.type) {
       case "configured":
-        if (sessionIdRef.current) fetch(`/api/sessions/${sessionIdRef.current}/live`, { method: "POST" }).catch(() => {});
-      // falls through
+        // The look is set; frames follow a few seconds later.
+        setStage((s) => Math.max(s, 4));
+        setLooks((list) => list.map((l, i) => (i === list.length - 1 ? { ...l, state: "applied" } : l)));
+        break;
       case "reset_applied":
-        setStage(STEPS.length);
-        setStatus("live");
-        setStartedAt((s) => s ?? Date.now());
         setLooks((list) => list.map((l, i) => (i === list.length - 1 ? { ...l, state: "applied" } : l)));
         break;
       case "prompt_applied":
@@ -398,12 +426,13 @@ export default function Mirror({ perSecondMc, minStartMc, initialBalanceMc }: { 
 
   // ---- timers, billing and cleanup ------------------------------------------------------------
 
-  // Some networks block video calls; don't leave people waiting (or paying) for a stream that never comes.
+  // Don't leave people waiting (or paying) for a picture that never comes: some networks block
+  // video calls. Sessions that never showed a frame are refunded.
   useEffect(() => {
     if (status !== "connecting") return;
     const timer = setTimeout(
-      () => finish("The live video couldn't connect. Your network may block video calls: try another network or browser. Connections that never start are refunded."),
-      40_000,
+      () => finish("No picture arrived from the AI, so we stopped and refunded this session. Your network may block video calls: try another Wi-Fi, turn off your VPN, or use Chrome."),
+      45_000,
     );
     return () => clearTimeout(timer);
   }, [status, finish]);
