@@ -25,11 +25,15 @@ model RenderSession {
   id            String    @id @default(cuid())
   userId        String
   user          User      @relation(fields: [userId], references: [id])
+  // Which realtime model this session runs (the movie director or Live Mirror).
+  model         String    @default("minimax/h3-max/reference-director")
   resolution    String
   // pending -> active -> ended
   status        String    @default("pending")
   falSessionId  String?   @unique
   startedAt     DateTime?
+  // When the browser confirmed the model was live; sessions that never got there are refunded.
+  liveAt        DateTime?
   lastChargedAt DateTime?
   endedAt       DateTime?
   endReason     String?

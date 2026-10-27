@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
-import { formatUsd, markupPercent, priceTable } from "@/lib/pricing";
+import { MIRROR_MODEL_ID, MIRROR_RESOLUTION, formatUsd, markupPercent, priceTable, sessionPricePerSecondMc } from "@/lib/pricing";
 import { GOALS, TOOLS, typicalPriceMc } from "@/lib/tools";
 import { TOP_UP_AMOUNTS_USD } from "@/lib/stripe";
 import HeroReel from "@/components/landing/HeroReel";
@@ -179,6 +179,12 @@ export default async function Home() {
             <h3>AI Director</h3>
             <p>Just describe your idea. It picks the tools, asks for your photos, shows the price, makes it and checks the result.</p>
             <span className="lp-tool-from">Powered by Claude Opus 5.5 · usually 5–30¢ per message</span>
+          </Link>
+          <Link href={user ? "/mirror" : "/signup"} className="lp-tool">
+            <span className="lp-feature-icon"><Icon d="M15 10l5-3v10l-5-3M3 6h12v12H3z" /></span>
+            <h3>Live Mirror</h3>
+            <p>Your webcam or any video, redrawn live as anime, Pixar 3D, claymation, comic book and more. Change the look by voice.</p>
+            <span className="lp-tool-from">New · about {formatUsd(sessionPricePerSecondMc(MIRROR_MODEL_ID, MIRROR_RESOLUTION) * 60)} per minute</span>
           </Link>
           {GOALS.map((goal) => {
             const tools = TOOLS.filter((t) => t.goal === goal.id);

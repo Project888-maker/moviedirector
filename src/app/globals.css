@@ -711,3 +711,71 @@ body:has(.dir-page) { height: 100dvh; display: flex; flex-direction: column; ove
 .lp-tool.lp-tool-director .lp-tool-from { color: #fff; }
 .lp-tool.lp-tool-director .lp-feature-icon { background: rgba(255,255,255,.15); color: #fff; }
 @media (max-width: 420px) { .dir-model { display: none; } .dir-tools { gap: 4px; } .dir-chip { padding: 5px 8px; } }
+
+/* ---------- live tabs & Live Mirror ---------- */
+.live-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 320px)); gap: 10px; margin-bottom: 18px; }
+.live-tabs a { display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--text); text-decoration: none; }
+.live-tabs a:hover { border-color: var(--border-strong); }
+.live-tabs a.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.live-tabs b { display: flex; align-items: center; gap: 8px; }
+.live-tabs em { font-style: normal; font-size: 11px; font-weight: 600; text-transform: uppercase; background: var(--accent); color: #fff; padding: 1px 7px; border-radius: 999px; }
+.live-tabs span { font-size: 13px; color: var(--muted); }
+@media (max-width: 600px) { .live-tabs { grid-template-columns: 1fr 1fr; } .live-tabs span { display: none; } }
+.mirror { display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 960px) { .mirror { grid-template-columns: 1fr; } }
+.mirror h2 { font-size: 17px; font-weight: 600; margin: 0 0 12px; display: flex; align-items: center; gap: 10px; font-family: inherit; }
+.mirror-h2 { margin-top: 24px !important; }
+.seg { display: inline-flex; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 2px; margin-bottom: 10px; }
+.seg button { background: none; color: var(--muted); padding: 6px 14px; font-size: 14px; border-radius: 6px; }
+.seg button.on { background: var(--panel); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+.mirror-preview { position: relative; aspect-ratio: 1280 / 704; background: #0a0a0a; border-radius: 10px; overflow: hidden; }
+.mirror-preview video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mirror-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 16px; background: var(--panel-2); color: var(--muted); font-size: 13px; }
+.mirror-placeholder.drop { cursor: pointer; border: 1.5px dashed var(--border-strong); border-radius: 10px; }
+.mirror-placeholder.drop:hover { border-color: var(--accent); background: var(--accent-soft); }
+.mirror-placeholder b { color: var(--text); font-size: 15px; }
+.warn-text { color: #b45309; }
+.mirror-input-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-top: 6px; }
+.mirror-input-actions .link-btn { padding: 4px 0; font-size: 14px; cursor: pointer; }
+.pg-toggle.small { margin-top: 8px; font-size: 14px; }
+.mirror-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.mirror-presets button { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 500; }
+.mirror-presets button:hover { border-color: var(--accent); }
+.mirror-presets button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-hover); }
+.mirror-start { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+.mirror-start b { font-size: 22px; font-variant-numeric: tabular-nums; }
+.mirror-start .hint { margin: 2px 0 0; }
+.mirror-start .btn { padding: 11px 18px; }
+.mirror-result { position: sticky; top: 84px; }
+@media (max-width: 960px) { .mirror-result { position: static; } }
+.mirror-result-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.mirror-result-head h2 { margin: 0 0 12px; }
+.mirror-meter { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.mirror-meter b { color: var(--text); }
+.mirror-stage { position: relative; aspect-ratio: 1280 / 704; background: #0a0a0a; border-radius: 10px; overflow: hidden; }
+.mirror-stage > video:first-child { width: 100%; height: 100%; object-fit: contain; display: block; }
+.mirror-stage:fullscreen { border-radius: 0; }
+.mirror-empty, .mirror-loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; padding: 24px; background: var(--panel-2); color: var(--muted); }
+.mirror-empty b { color: var(--text); font-size: 20px; }
+.mirror-empty span { max-width: 420px; font-size: 14px; }
+.mirror-loading { background: rgba(244,244,245,.96); }
+.mirror-loading ol { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-direction: column; gap: 4px; font-size: 14px; text-align: left; }
+.mirror-loading li.done { color: var(--ok); }
+.mirror-loading li.done::before { content: "✓ "; }
+.mirror-loading li.current { color: var(--text); font-weight: 600; }
+.mirror-loading li.current::before { content: "› "; }
+.mirror-loading li.todo { opacity: .5; }
+.mirror-loading li.todo::before { content: "  "; white-space: pre; }
+.mirror-pip { position: absolute; left: 10px; bottom: 10px; width: 22%; min-width: 96px; aspect-ratio: 1280 / 704; object-fit: cover; border-radius: 8px; border: 2px solid rgba(255,255,255,.85); box-shadow: 0 4px 16px rgba(0,0,0,.4); transform: scaleX(-1); }
+.mirror-stage-tools { position: absolute; top: 10px; right: 10px; display: flex; gap: 6px; }
+.mirror-stage-tools button { background: rgba(0,0,0,.55); color: #fff; padding: 5px 10px; font-size: 13px; border-radius: 6px; backdrop-filter: blur(4px); }
+.mirror-live { margin-top: 14px; }
+.mirror-live .row > input { min-width: 0; }
+.mirror-looks { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.mirror-looks li { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mirror-looks li.applied { color: var(--text); }
+.mirror-recording { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+.mirror-recording video { width: 100%; border-radius: 10px; background: #000; }
+.pg-goal.live.mirror { background: linear-gradient(135deg, #0f172a, #0e7490); border-color: #0f172a; }
+/* Webcam views are flipped like a selfie camera; the saved recording is not. */
+.mirror-preview.selfie video, .mirror-stage.selfie > video:first-child { transform: scaleX(-1); }

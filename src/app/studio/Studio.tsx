@@ -373,7 +373,13 @@ export default function Studio({
         if (state === "closed" || state === "failed") finish();
       },
       onError: (err) => {
-        setError(err instanceof Error ? err.message : String(err));
+        const text = err instanceof Error ? err.message : String(err);
+        console.error("realtime error", text);
+        setError(
+          /ICE|TURN|STUN|relay|peer connection/i.test(text)
+            ? "The live video couldn't connect. Your network may block video calls: try another Wi-Fi, turn off your VPN, or use Chrome. Connections that never start are refunded."
+            : text,
+        );
         finish();
       },
     });
@@ -415,6 +421,8 @@ export default function Studio({
     }
     switch (message.type) {
       case "configured":
+        // Lets the server refund sessions that never got this far.
+        if (sessionIdRef.current) fetch(`/api/sessions/${sessionIdRef.current}/live`, { method: "POST" }).catch(() => {});
         setStage((s) => Math.max(s, 4));
         setStatus("live");
         markStarted();

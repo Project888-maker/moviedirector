@@ -191,6 +191,11 @@ export default function Playground({ markup, signedIn, initialBalanceMc, initial
             <b>Live movie <span className="tier-pill premium">Premium</span></b>
             <span>Direct a film in real time by typing or talking.</span>
           </Link>
+          <Link href="/mirror" className="pg-goal live mirror">
+            <Icon d="M15 10l5-3v10l-5-3M3 6h12v12H3z" />
+            <b>Live Mirror <span className="tier-pill budget">New</span></b>
+            <span>Turn your webcam or a video into anime, Pixar, clay… live.</span>
+          </Link>
         </div>
       </section>
 

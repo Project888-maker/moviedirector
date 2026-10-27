@@ -1,0 +1,13 @@
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { jsonError } from "@/lib/http";
+
+// The studio calls this once the model confirms it is live, so failed connections can be refunded.
+export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const user = await getCurrentUser();
+  if (!user) return jsonError(401, "Not signed in.");
+  const { id } = await params;
+  await db.renderSession.updateMany({ where: { id, userId: user.id, liveAt: null, status: "active" }, data: { liveAt: new Date() } });
+  return NextResponse.json({ ok: true });
+}

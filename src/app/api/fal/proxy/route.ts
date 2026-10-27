@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { chargeSession } from "@/lib/billing";
 import { jsonError } from "@/lib/http";
-import { MODEL_ID, formatUsd, isResolution, minStartBalanceMc } from "@/lib/pricing";
+import { LIVE_MODELS, formatUsd, isResolution, sessionMinStartMc } from "@/lib/pricing";
 
 export const runtime = "nodejs";
 
@@ -18,10 +18,10 @@ export const runtime = "nodejs";
 const WMA_HOST = "wma.fal.run";
 
 const proxyConfig = resolveProxyConfig({
-  // Only the realtime bridge for this one model is reachable through the proxy.
+  // Only the realtime bridge for our live models is reachable through the proxy.
   allowedUrlPatterns: [],
   serviceHosts: [WMA_HOST],
-  allowedEndpoints: [MODEL_ID],
+  allowedEndpoints: [...LIVE_MODELS],
   allowUnauthorizedRequests: false,
   // The user is authenticated by our own session cookie before we get here.
   isAuthenticated: async () => true,
@@ -73,9 +73,18 @@ async function handler(req: NextRequest) {
 
   const body = await req.text();
 
+  // /ice and /session name the model they open; it must be the one this session is billed for.
+  if (path === "/ice" || path === "/session") {
+    let appId: unknown;
+    try {
+      appId = JSON.parse(body).app_id;
+    } catch {}
+    if (appId !== render.model) return jsonError(400, "Invalid request.");
+  }
+
   if (path === "/session") {
     if (render.status !== "pending") return jsonError(409, "Session already started.");
-    const required = minStartBalanceMc(render.resolution);
+    const required = sessionMinStartMc(render.model, render.resolution);
     if (user.balanceMc < required) {
       return jsonError(402, `You need at least ${formatUsd(required)} of credit to start.`);
     }
