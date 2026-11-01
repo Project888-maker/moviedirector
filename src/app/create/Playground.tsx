@@ -313,6 +313,7 @@ function FieldInput({
         </label>
       );
     case "select":
+      if (field.previews) return <StylePicker field={field} value={String(value)} onChange={onChange} />;
       return (
         <label>
           <span className="field-label">{field.label}</span>
@@ -427,6 +428,54 @@ function MediaInput({
         </span>
       )}
       {error && <span className="hint warn">{error}</span>}
+    </div>
+  );
+}
+
+/** A grid of real samples to choose a style from; the hovered or chosen one plays. */
+function StylePicker({ field, value, onChange }: { field: Extract<Field, { type: "select" }>; value: string; onChange: (value: string) => void }) {
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const chosen = field.options.find((o) => o.value === value) ?? field.options[0];
+  const shown = open ? field.options : field.options.slice(0, 6).some((o) => o.value === value) ? field.options.slice(0, 6) : [chosen, ...field.options.slice(0, 5)];
+
+  return (
+    <div className="style-picker">
+      <span className="field-label">
+        {field.label} <span className="muted">· {chosen.label}{field.badged?.values.includes(chosen.value) ? ` (${field.badged.label} price)` : ""}</span>
+      </span>
+      <div className="style-grid" role="radiogroup" aria-label={field.label}>
+        {shown.map((o) => {
+          const playing = hovered === o.value || (hovered === null && value === o.value);
+          return (
+            <button
+              key={o.value}
+              type="button"
+              role="radio"
+              aria-checked={value === o.value}
+              className={`style-card ${value === o.value ? "on" : ""}`}
+              onClick={() => onChange(o.value)}
+              onMouseEnter={() => setHovered(o.value)}
+              onMouseLeave={() => setHovered(null)}
+            >
+              {playing ? (
+                <video src={`${field.previews}/${o.value}.mp4`} poster={`${field.previews}/${o.value}.jpg`} autoPlay muted loop playsInline />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={`${field.previews}/${o.value}.jpg`} alt="" loading="lazy" />
+              )}
+              <span className="style-name">
+                {o.label}
+                {field.badged?.values.includes(o.value) && <em>{field.badged.label}</em>}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {field.help && <span className="hint">{field.help}</span>}
+      <button type="button" className="link-btn" onClick={() => setOpen(!open)}>
+        {open ? "Show fewer styles" : `Show all ${field.options.length} styles`}
+      </button>
     </div>
   );
 }

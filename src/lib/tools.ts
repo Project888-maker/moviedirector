@@ -19,7 +19,18 @@ type Option = { value: string; label: string };
 
 export type Field =
   | { key: string; type: "text"; label: string; placeholder?: string; required?: boolean; help?: string; maxLength?: number; rows?: number }
-  | { key: string; type: "select"; label: string; options: Option[]; default: string; help?: string }
+  | {
+      key: string;
+      type: "select";
+      label: string;
+      options: Option[];
+      default: string;
+      help?: string;
+      /** Folder in /public with `<value>.jpg` and `<value>.mp4` samples; shows a visual picker. */
+      previews?: string;
+      /** Option values to badge (for example styles that cost more). */
+      badged?: { values: string[]; label: string };
+    }
   | { key: string; type: "slider"; label: string; min: number; max: number; step: number; default: number; unit: string; help?: string }
   | { key: string; type: "toggle"; label: string; default: boolean; help?: string }
   | {
@@ -835,11 +846,11 @@ export const TOOLS: Tool[] = [
         key: "preset",
         type: "select",
         label: "Style",
-        options: [
-          ...SUBTITLE_BASIC.map((value) => ({ value, label: titleCase(value) })),
-          ...SUBTITLE_ANIMATED.map((value) => ({ value, label: `${titleCase(value)} · animated (2× price)` })),
-        ],
+        options: [...SUBTITLE_BASIC, ...SUBTITLE_ANIMATED].map((value) => ({ value, label: titleCase(value) })),
         default: "simple",
+        previews: "/media/subtitle-styles",
+        badged: { values: SUBTITLE_ANIMATED, label: "2×" },
+        help: "2× styles are animated and cost double. Hover a style to play it.",
       },
     ],
     cost: (v, d) => {

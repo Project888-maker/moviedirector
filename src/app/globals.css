@@ -782,3 +782,14 @@ body:has(.dir-page) { height: 100dvh; display: flex; flex-direction: column; ove
 /* Long titles with a badge wrap as whole words on narrow goal cards. */
 .pg-goal b { flex-wrap: wrap; row-gap: 4px; }
 .pg-goal b .tier-pill { flex: none; }
+/* ---------- subtitle style picker ---------- */
+.style-picker { margin-top: 4px; }
+.style-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.style-card { position: relative; display: block; padding: 0; border-radius: 10px; overflow: hidden; background: #0a0a0a; border: 2px solid transparent; aspect-ratio: 832 / 480; white-space: normal; }
+.style-card img, .style-card video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.style-card:hover { border-color: var(--border-strong); }
+.style-card.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.style-name { position: absolute; left: 6px; top: 6px; display: flex; gap: 4px; align-items: center; background: rgba(0,0,0,.65); color: #fff; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px; }
+.style-name { white-space: nowrap; }
+.style-name em { font-style: normal; font-size: 10px; background: #f59e0b; color: #1c1917; border-radius: 4px; padding: 0 5px; }
+.style-picker .link-btn { display: block; margin-top: 6px; font-size: 14px; color: var(--accent); padding: 4px 0; }
