@@ -3,6 +3,7 @@
 import type { Job } from "@prisma/client";
 import { db } from "./db";
 import { MC_PER_USD, markupPercent } from "./pricing";
+import { isFalOutOfCredit, reportOutOfCredit } from "./status";
 import { extractOutputs, measuredFields, userPriceMc, type Durations, type OutputType, type Tool, type Values } from "./tools";
 
 const QUEUE_HOST = "queue.fal.run";
@@ -108,6 +109,7 @@ export async function createJob(userId: string, tool: Tool, values: Values, chat
     const body = await res.json().catch(() => null);
     if (!res.ok || !body?.request_id) {
       console.error("fal submit failed", tool.endpoint, res.status, JSON.stringify(body)?.slice(0, 500));
+      if (isFalOutOfCredit(res.status, body)) await reportOutOfCredit("fal", JSON.stringify(body)?.slice(0, 300) ?? `HTTP ${res.status}`);
       const message = res.status === 403 || res.status === 402
         ? "The AI service is temporarily unavailable. You have not been charged."
         : falErrorMessage(body);

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { maintenanceBlock } from "@/lib/status";
 import { jsonError } from "@/lib/http";
 import { formatUsd } from "@/lib/pricing";
 import { EFFORTS, MIN_DIRECTOR_BALANCE_MC, runDirector, type DirectorEvent } from "@/lib/director/agent";
@@ -23,6 +24,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const user = await getCurrentUser();
   if (!user) return jsonError(401, "Not signed in.");
   if (!process.env.ANTHROPIC_API_KEY) return jsonError(503, "The AI Director is not configured yet.");
+  const paused = await maintenanceBlock(isAdmin(user.email));
+  if (paused) return jsonError(503, paused);
   const { id } = await params;
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonError(400, "Invalid message.");

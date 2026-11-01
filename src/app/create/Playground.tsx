@@ -34,9 +34,14 @@ type Props = {
 
 const ACCEPT = { image: "image/*", video: "video/mp4,video/quicktime,video/webm,video/*", audio: "audio/*" } as const;
 
-function Icon({ d }: { d: string }) {
+/** A short looping example of what a goal makes (files in /public/media/goals). */
+function GoalPreview({ id }: { id: string }) {
+  return <video className="pg-goal-media" src={`/media/goals/${id}.mp4`} poster={`/media/goals/${id}.jpg`} autoPlay muted loop playsInline preload="metadata" aria-hidden="true" />;
+}
+
+function Icon({ d, size = 22 }: { d: string; size?: number }) {
   return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d={d} />
     </svg>
   );
@@ -181,19 +186,19 @@ export default function Playground({ markup, signedIn, initialBalanceMc, initial
         <div className="pg-goals">
           {GOALS.map((g) => (
             <button key={g.id} type="button" className={`pg-goal ${g.id === tool.goal ? "on" : ""}`} onClick={() => selectGoal(g.id)} aria-pressed={g.id === tool.goal}>
-              <Icon d={g.icon} />
-              <b>{g.title}</b>
+              <GoalPreview id={g.id} />
+              <b><Icon d={g.icon} size={18} /> {g.title}</b>
               <span>{g.description}</span>
             </button>
           ))}
           <Link href="/studio" className="pg-goal live">
-            <Icon d="M23 7l-7 5 7 5V7zM1 5h15v14H1z" />
-            <b>Live movie <span className="tier-pill premium">Premium</span></b>
+            <GoalPreview id="live" />
+            <b><Icon d="M23 7l-7 5 7 5V7zM1 5h15v14H1z" size={18} /> Live movie <span className="tier-pill premium">Premium</span></b>
             <span>Direct a film in real time by typing or talking.</span>
           </Link>
-          <Link href="/mirror" className="pg-goal live mirror">
-            <Icon d="M15 10l5-3v10l-5-3M3 6h12v12H3z" />
-            <b>Live Mirror <span className="tier-pill budget">New</span></b>
+          <Link href="/mirror" className="pg-goal live mirror-goal">
+            <GoalPreview id="mirror" />
+            <b><Icon d="M15 10l5-3v10l-5-3M3 6h12v12H3z" size={18} /> Live Mirror <span className="tier-pill budget">New</span></b>
             <span>Turn your webcam or a video into anime, Pixar, clay… live.</span>
           </Link>
         </div>

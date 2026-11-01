@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { maintenanceBlock } from "@/lib/status";
 import { reapStaleSessions } from "@/lib/billing";
 import { jsonError } from "@/lib/http";
 import { MIRROR_MODEL_ID, MIRROR_RESOLUTION, MODEL_ID, RESOLUTIONS, formatUsd, sessionMinStartMc } from "@/lib/pricing";
@@ -14,6 +15,8 @@ const schema = z.object({ resolution: z.enum(RESOLUTIONS).optional(), mode: z.en
 export async function POST(req: Request) {
   const user = await getCurrentUser();
   if (!user) return jsonError(401, "Not signed in.");
+  const paused = await maintenanceBlock(isAdmin(user.email));
+  if (paused) return jsonError(503, paused);
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonError(400, "Invalid resolution.");
   const mirror = parsed.data.mode === "mirror";

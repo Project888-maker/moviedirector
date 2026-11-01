@@ -10,6 +10,7 @@ import { db } from "../db";
 import { MC_PER_USD, markupPercent } from "../pricing";
 import { findTool } from "../tools";
 import { directorSystemPrompt } from "./prompt";
+import { reportOutOfCredit } from "../status";
 import {
   DIRECTOR_TOOLS,
   MAX_GENERATIONS_PER_MESSAGE,
@@ -241,6 +242,12 @@ export async function runDirector(params: {
         await bill(chat, model, usage).catch(() => {});
         if (signal.aborted) return;
         console.error("director stream failed", err);
+        // Anthropic answers 400 "Your credit balance is too low" when the account runs dry.
+        if (err instanceof Anthropic.APIError && /credit balance|billing/i.test(err.message)) {
+          await reportOutOfCredit("anthropic", err.message);
+          emit({ t: "error", message: "The AI Director is paused for a short maintenance break. Your credit is safe; try again soon." });
+          return;
+        }
         const busy = err instanceof Anthropic.RateLimitError || (err instanceof Anthropic.APIError && (err.status ?? 0) >= 500);
         emit({ t: "error", message: busy ? "The AI is busy right now. Try again in a minute." : "Something went wrong. Try sending your message again." });
         return;

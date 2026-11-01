@@ -427,7 +427,7 @@ th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border);
 .pg-step { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600; margin: 28px 0 12px; }
 .pg-step span { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 13px; flex: none; }
 .pg-form .pg-step { margin-top: 0; }
-.pg-goals { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.pg-goals { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
 .pg-goal, .pg-tool {
   display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; white-space: normal;
   background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 14px;
@@ -776,7 +776,7 @@ body:has(.dir-page) { height: 100dvh; display: flex; flex-direction: column; ove
 .mirror-looks li.applied { color: var(--text); }
 .mirror-recording { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
 .mirror-recording video { width: 100%; border-radius: 10px; background: #000; }
-.pg-goal.live.mirror { background: linear-gradient(135deg, #0f172a, #0e7490); border-color: #0f172a; }
+.pg-goal.live.mirror-goal { background: linear-gradient(135deg, #0f172a, #0e7490); border-color: #0f172a; }
 /* Webcam views are flipped like a selfie camera; the saved recording is not. */
 .mirror-preview.selfie video, .mirror-stage.selfie > video:first-child { transform: scaleX(-1); }
 /* Long titles with a badge wrap as whole words on narrow goal cards. */
@@ -793,3 +793,27 @@ body:has(.dir-page) { height: 100dvh; display: flex; flex-direction: column; ove
 .style-name { white-space: nowrap; }
 .style-name em { font-style: normal; font-size: 10px; background: #f59e0b; color: #1c1917; border-radius: 4px; padding: 0 5px; }
 .style-picker .link-btn { display: block; margin-top: 6px; font-size: 14px; color: var(--accent); padding: 4px 0; }
+/* ---------- site banners & admin status ---------- */
+.site-banner { background: #fef9c3; color: #713f12; border-bottom: 1px solid #fde68a; padding: 10px 24px; font-size: 14px; text-align: center; }
+.site-banner b { margin-right: 6px; }
+.site-banner a { color: inherit; font-weight: 600; }
+.site-banner.danger { background: #fee2e2; color: #7f1d1d; border-color: #fecaca; }
+.admin-status { margin-bottom: 28px; }
+.admin-status h2, main > h2 { font-size: 20px; margin: 4px 0 14px; }
+.status-controls { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+.status-switch { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px; border-radius: 10px; background: #dcfce7; }
+.status-switch.on { background: #fef9c3; }
+.status-switch > div { display: flex; flex-direction: column; gap: 2px; }
+.status-alerts { background: #fee2e2; border-radius: 10px; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.status-alerts p { margin: 0; font-size: 14px; }
+
+/* Goal cards open with a looping example of what they make. */
+.pg-goal { overflow: hidden; }
+.pg-goal-media { display: block; width: calc(100% + 28px); margin: -14px -14px 8px; aspect-ratio: 16 / 9; object-fit: cover; background: #0a0a0a; }
+.pg-goal b svg { margin: 0; flex: none; }
+@media (max-width: 600px) {
+  .pg-goal-media { width: calc(100% + 20px); margin: -10px -10px 6px; }
+}
+.lp-tool { overflow: hidden; }
+.lp-tool-media { display: block; width: calc(100% + 40px); margin: -20px -20px 6px; aspect-ratio: 16 / 9; object-fit: cover; background: #0a0a0a; }
+.pg-goal { justify-content: flex-start; }

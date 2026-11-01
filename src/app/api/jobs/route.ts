@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { maintenanceBlock } from "@/lib/status";
 import { jsonError } from "@/lib/http";
 import { JobError, createJob, publicJob } from "@/lib/jobs";
 import { findTool, validateValues } from "@/lib/tools";
@@ -14,6 +15,8 @@ const schema = z.object({ toolId: z.string(), values: z.record(z.unknown()) });
 export async function POST(req: Request) {
   const user = await getCurrentUser();
   if (!user) return jsonError(401, "Not signed in.");
+  const paused = await maintenanceBlock(isAdmin(user.email));
+  if (paused) return jsonError(503, paused);
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonError(400, "Invalid request.");
   const tool = findTool(parsed.data.toolId);

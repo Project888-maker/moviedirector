@@ -181,7 +181,7 @@ export default async function Home() {
             <span className="lp-tool-from">Powered by Claude Opus 5.5 · usually 5–30¢ per message</span>
           </Link>
           <Link href={user ? "/mirror" : "/signup"} className="lp-tool">
-            <span className="lp-feature-icon"><Icon d="M15 10l5-3v10l-5-3M3 6h12v12H3z" /></span>
+            <video className="lp-tool-media" src="/media/goals/mirror.mp4" poster="/media/goals/mirror.jpg" autoPlay muted loop playsInline preload="metadata" aria-hidden="true" />
             <h3>Live Mirror</h3>
             <p>Your webcam or any video, redrawn live as anime, Pixar 3D, claymation, comic book and more. Change the look by voice.</p>
             <span className="lp-tool-from">New · about {formatUsd(sessionPricePerSecondMc(MIRROR_MODEL_ID, MIRROR_RESOLUTION) * 60)} per minute</span>
@@ -191,7 +191,7 @@ export default async function Home() {
             const from = Math.min(...tools.map((t) => typicalPriceMc(t, markupPercent)));
             return (
               <Link key={goal.id} href={`/create?tool=${tools[0].id}`} className="lp-tool">
-                <span className="lp-feature-icon"><Icon d={goal.icon} /></span>
+                <video className="lp-tool-media" src={`/media/goals/${goal.id}.mp4`} poster={`/media/goals/${goal.id}.jpg`} autoPlay muted loop playsInline preload="metadata" aria-hidden="true" />
                 <h3>{goal.title}</h3>
                 <p>{goal.description}</p>
                 <span className="lp-tool-from">{tools.length} tools · from about {formatUsd(from)}</span>

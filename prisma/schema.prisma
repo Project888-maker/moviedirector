@@ -108,3 +108,10 @@ model DirectorChat {
 
   @@index([userId, updatedAt])
 }
+
+// Site-wide switches and alerts the admin page controls (maintenance mode, provider balance alerts).
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}

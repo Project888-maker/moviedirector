@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { chargeSession } from "@/lib/billing";
 import { jsonError } from "@/lib/http";
+import { isFalOutOfCredit, reportOutOfCredit } from "@/lib/status";
 import { LIVE_MODELS, formatUsd, isResolution, sessionMinStartMc } from "@/lib/pricing";
 
 export const runtime = "nodejs";
@@ -110,6 +111,11 @@ async function handler(req: NextRequest) {
   } catch (error) {
     console.error("fal proxy request failed", error);
     response = jsonError(502, "Could not reach fal.");
+  }
+
+  if (path === "/session" && !response.ok) {
+    const failure = await response.clone().json().catch(() => null);
+    if (isFalOutOfCredit(response.status, failure)) await reportOutOfCredit("fal", JSON.stringify(failure)?.slice(0, 300) ?? `HTTP ${response.status}`);
   }
 
   if (path === "/session") {
