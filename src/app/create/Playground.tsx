@@ -12,7 +12,7 @@ import {
   defaultValues,
   findTool,
   measuredFields,
-  typicalPriceMc,
+  priceLabel,
   userPriceMc,
   type Durations,
   type Field,
@@ -90,8 +90,8 @@ export default function Playground({ markup, signedIn, initialBalanceMc, initial
       const url = (values[field.key] as string[])[0];
       const seconds = url ? durations[url] : undefined;
       if (seconds == null) {
-        const perSecond = tool.cost(values, { ...measured, [field.key]: 1 }) * MC_PER_USD * (1 + markup / 100);
-        return { mc: null, note: `${url ? "Reading your file…" : `Add ${field.label.toLowerCase()} to see the price.`} About ${formatUsd(perSecond)} per second.` };
+        const perMinute = tool.cost(values, { ...measured, [field.key]: 60 }) * MC_PER_USD * (1 + markup / 100);
+        return { mc: null, note: `${url ? "Reading your file…" : `Add ${field.label.toLowerCase()} to see the price.`} About ${formatUsd(perMinute)} per minute.` };
       }
       measured[field.key] = seconds;
     }
@@ -210,7 +210,7 @@ export default function Playground({ markup, signedIn, initialBalanceMc, initial
               <span className="pg-tool-model">{t.model}</span>
               <span>{t.summary}</span>
               <span className="pg-tool-meta">
-                <span>about {formatUsd(typicalPriceMc(t, markup))}</span>
+                <span>{priceLabel(t, markup, formatUsd)}</span>
                 <span>{t.time}</span>
               </span>
             </button>

@@ -5,9 +5,10 @@
 // prices, not temporary promos, so a promo ending never turns a job into a loss.
 
 import { MC_PER_USD } from "./pricing";
+import { LANGUAGES, type Language } from "./languages";
 
 export type Tier = "budget" | "standard" | "premium";
-export type GoalId = "clip" | "animate" | "cast" | "edit" | "sound" | "voice" | "image";
+export type GoalId = "clip" | "animate" | "cast" | "edit" | "sound" | "voice" | "translate" | "image";
 export type OutputType = "video" | "image" | "audio";
 export type MediaKind = "image" | "video" | "audio";
 export type Values = Record<string, string | number | boolean | string[]>;
@@ -91,6 +92,12 @@ export const GOALS: Goal[] = [
     title: "Voice & talking photo",
     description: "Turn text into speech and make a face say it.",
     icon: "M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Zm7 9a7 7 0 0 1-14 0m7 7v4",
+  },
+  {
+    id: "translate",
+    title: "Translate & subtitle",
+    description: "Dub a video into another language or add styled subtitles.",
+    icon: "M4 5h8M8 3v2m3 0c-1 4-4 7-7 8m2-4c1 2 3 3 5 4M13 21l4-10 4 10m-6.5-4h5",
   },
   {
     id: "image",
@@ -210,6 +217,15 @@ const VOICE_LANGUAGES: Record<string, string> = {
   nl: "Dutch", pl: "Polish", ru: "Russian", uk: "Ukrainian", tr: "Turkish", ar: "Arabic", hi: "Hindi", ja: "Japanese",
   ko: "Korean", zh: "Chinese",
 };
+
+const SUBTITLE_BASIC = ["simple", "plain", "beans", "corpo", "boo", "shadeplay", "casper", "capri", "lowkey", "vinta", "diego", "ali", "slay", "kitty", "hustle", "karl", "sprout", "flex", "mint", "rizz", "vegas"];
+const SUBTITLE_ANIMATED = ["glass", "whisper", "glide", "glide2", "fusion", "terminal", "handwritten", "backdrop", "backdrop2"];
+const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).replace(/(\d)$/, " $1");
+
+/** The languages one model supports, as select options using that model's codes. */
+function langOptions(model: keyof Omit<Language, "label">): Option[] {
+  return LANGUAGES.filter((l) => l[model]).map((l) => ({ value: l[model]!, label: l.label }));
+}
 
 // ------------------------------------------------------------------ the catalog
 
@@ -781,6 +797,147 @@ export const TOOLS: Tool[] = [
     input: (v) => ({ image_url: first(v, "image_url"), audio_url: first(v, "audio_url"), resolution: str(v, "resolution") }),
   },
 
+  // ---------------------------------------------------------------- Translate & subtitle
+  {
+    id: "veed-subtitles",
+    goal: "translate",
+    tier: "budget",
+    name: "Subtitles",
+    model: "VEED Subtitles",
+    endpoint: "veed/subtitles",
+    output: "video",
+    summary: "Adds styled, word-timed subtitles to your video, in its own language or translated into 200+ others.",
+    bestFor: "Reels, TikToks, interviews and foreign-language clips",
+    time: "1 to 3 minutes",
+    tips: [
+      "Leave “Subtitles in” on the spoken language for captions, or pick another language to translate them.",
+      "Animated styles cost double and highlight words as they are spoken.",
+      "Billed per started minute of video. 4K videos cost double.",
+    ],
+    fields: [
+      { key: "video_url", type: "media", kind: "video", label: "Your video", required: true, seconds: { min: 1, max: 600 }, help: "Up to 10 minutes." },
+      {
+        key: "translation_language",
+        type: "select",
+        label: "Subtitles in",
+        options: [{ value: "", label: "Same language as the video" }, ...langOptions("subtitle")],
+        default: "",
+      },
+      {
+        key: "language",
+        type: "select",
+        label: "Spoken language",
+        options: [{ value: "", label: "Detect automatically" }, ...langOptions("spoken")],
+        default: "",
+        help: "Setting it improves accuracy.",
+      },
+      {
+        key: "preset",
+        type: "select",
+        label: "Style",
+        options: [
+          ...SUBTITLE_BASIC.map((value) => ({ value, label: titleCase(value) })),
+          ...SUBTITLE_ANIMATED.map((value) => ({ value, label: `${titleCase(value)} · animated (2× price)` })),
+        ],
+        default: "simple",
+      },
+    ],
+    cost: (v, d) => {
+      const minutes = Math.max(1, Math.ceil(d.video_url / 60));
+      const style = SUBTITLE_ANIMATED.includes(str(v, "preset")) ? 2 : 1;
+      const resolution = (d["video_url#height"] ?? 0) > 1080 ? 2 : 1;
+      return minutes * (0.1 * style * resolution + (str(v, "translation_language") ? 0.2 : 0));
+    },
+    input: (v) =>
+      clean({
+        video_url: first(v, "video_url"),
+        preset: str(v, "preset"),
+        language: str(v, "language"),
+        translation_language: str(v, "translation_language"),
+      }),
+  },
+  {
+    id: "eleven-dub",
+    goal: "translate",
+    tier: "budget",
+    name: "Voice dub",
+    model: "ElevenLabs Dubbing",
+    endpoint: "fal-ai/elevenlabs/dubbing",
+    output: "video",
+    summary: "Translates the speech in your video into another language with natural, cloned voices. Background sound stays.",
+    bestFor: "Vlogs, tutorials and voice-overs where lips don't need to match",
+    time: "1 to 5 minutes",
+    tips: [
+      "The speakers keep their own voice, now speaking the new language.",
+      "Lips are not changed. For talking-head videos choose Dub + lip-sync.",
+      "Billed per started minute of video.",
+    ],
+    fields: [
+      { key: "video_url", type: "media", kind: "video", label: "Your video", required: true, seconds: { min: 1, max: 600 }, help: "Up to 10 minutes." },
+      { key: "target_lang", type: "select", label: "Translate into", options: langOptions("eleven"), default: "en" },
+    ],
+    cost: (_v, d) => Math.max(1, Math.ceil(d.video_url / 60)) * 0.6,
+    input: (v) => ({ video_url: first(v, "video_url"), target_lang: str(v, "target_lang"), highest_resolution: true }),
+  },
+  {
+    id: "heygen-translate",
+    goal: "translate",
+    tier: "standard",
+    name: "Dub + lip-sync",
+    model: "HeyGen Video Translate",
+    endpoint: "fal-ai/heygen/v2/translate/speed",
+    output: "video",
+    summary: "Translates your video with cloned voices and re-syncs the lips, so people look like they speak the new language.",
+    bestFor: "Talking heads, ads, interviews and courses",
+    time: "3 to 10 minutes",
+    tips: [
+      "Works best with clear faces looking towards the camera.",
+      "Turn on “voice only” to translate the audio without changing the lips.",
+      "Add subtitles afterwards with the Subtitles tool.",
+    ],
+    fields: [
+      { key: "video_url", type: "media", kind: "video", label: "Your video", required: true, seconds: { min: 1, max: 480 }, help: "Up to 8 minutes." },
+      { key: "output_language", type: "select", label: "Translate into", options: langOptions("heygen"), default: "English" },
+      { key: "translate_audio_only", type: "toggle", label: "Voice only (don't change the lips)", default: false },
+    ],
+    cost: (_v, d) => 0.05 * d.video_url,
+    input: (v) => ({
+      video_url: first(v, "video_url"),
+      output_language: str(v, "output_language"),
+      translate_audio_only: Boolean(v.translate_audio_only),
+      // Keeps the output as long as the input, so the price is known up front.
+      enable_dynamic_duration: false,
+    }),
+  },
+  {
+    id: "heygen-translate-pro",
+    goal: "translate",
+    tier: "premium",
+    name: "Studio dub",
+    model: "HeyGen Video Translate Precision",
+    endpoint: "fal-ai/heygen/v2/translate/precision",
+    output: "video",
+    summary: "HeyGen's most accurate translation and lip-sync, for videos that will be seen by clients and big audiences.",
+    bestFor: "Brand videos, presenters and close-up faces",
+    time: "5 to 15 minutes",
+    tips: [
+      "Use it for final versions. Test the language with Dub + lip-sync first.",
+      "Clear audio without music on top gives the best voices.",
+    ],
+    fields: [
+      { key: "video_url", type: "media", kind: "video", label: "Your video", required: true, seconds: { min: 1, max: 480 }, help: "Up to 8 minutes." },
+      { key: "output_language", type: "select", label: "Translate into", options: langOptions("heygen"), default: "English" },
+      { key: "translate_audio_only", type: "toggle", label: "Voice only (don't change the lips)", default: false },
+    ],
+    cost: (_v, d) => 0.1 * d.video_url,
+    input: (v) => ({
+      video_url: first(v, "video_url"),
+      output_language: str(v, "output_language"),
+      translate_audio_only: Boolean(v.translate_audio_only),
+      enable_dynamic_duration: false,
+    }),
+  },
+
   // ---------------------------------------------------------------- Images & storyboards
   {
     id: "klein-image",
@@ -925,4 +1082,12 @@ export function typicalPriceMc(tool: Tool, markupPercent: number) {
   const durations: Durations = {};
   for (const field of measuredFields(tool)) durations[field.key] = Math.max(5, field.seconds!.min);
   return userPriceMc(tool.cost(values, durations), markupPercent);
+}
+
+/** "$0.39/min"-style label for tools priced by the length of an upload, otherwise "about $0.17". */
+export function priceLabel(tool: Tool, markupPercent: number, format: (mc: number) => string): string {
+  const measured = measuredFields(tool)[0];
+  if (!measured) return `about ${format(typicalPriceMc(tool, markupPercent))}`;
+  const perMinute = userPriceMc(tool.cost(defaultValues(tool), { [measured.key]: 60 }), markupPercent);
+  return `${format(perMinute)}/min`;
 }

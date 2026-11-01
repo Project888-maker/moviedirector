@@ -15,6 +15,8 @@ export const NEXT_STEPS: Record<OutputType, { label: string; toolId: string; fie
     { label: "Restyle", toolId: "lucy-restyle", field: "video_url" },
     { label: "Edit with words", toolId: "flux-edit-video", field: "video_url" },
     { label: "Add to movie", toolId: "join-clips", field: "video_urls" },
+    { label: "Add subtitles", toolId: "veed-subtitles", field: "video_url" },
+    { label: "Translate", toolId: "heygen-translate", field: "video_url" },
   ],
   image: [
     { label: "Animate", toolId: "vidu-image", field: "image_url" },

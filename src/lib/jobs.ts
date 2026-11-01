@@ -33,8 +33,8 @@ function falErrorMessage(body: unknown): string {
   return typeof error === "string" ? error : "The AI could not make this. Try changing the prompt or files.";
 }
 
-/** Asks fal for the length of an uploaded video or audio file, in seconds. */
-async function mediaDuration(url: string): Promise<number> {
+/** Asks fal for the length (in seconds) and picture height of an uploaded video or audio file. */
+async function mediaInfo(url: string): Promise<{ duration: number; height: number }> {
   const res = await fetch("https://fal.run/fal-ai/ffmpeg-api/metadata", {
     method: "POST",
     headers: falHeaders(),
@@ -45,7 +45,7 @@ async function mediaDuration(url: string): Promise<number> {
   if (!res.ok || !Number.isFinite(duration) || duration <= 0) {
     throw new JobError(400, "We couldn't read that file. Upload an MP4, MOV, MP3, WAV or M4A file.");
   }
-  return duration;
+  return { duration, height: Number(body?.media?.resolution?.height) || 0 };
 }
 
 /** Measures the media that sets a tool's price and checks it is within the allowed length. */
@@ -54,12 +54,14 @@ export async function measure(tool: Tool, values: Values): Promise<Durations> {
   for (const field of measuredFields(tool)) {
     const url = (values[field.key] as string[])[0];
     if (!url) continue;
-    const seconds = await mediaDuration(url);
+    const { duration: seconds, height } = await mediaInfo(url);
     const { min, max } = field.seconds!;
     if (seconds < min || seconds > max) {
       throw new JobError(400, `${field.label} is ${seconds.toFixed(1)} s long. This tool takes ${min}–${max} seconds.`);
     }
     durations[field.key] = seconds;
+    // Some tools charge more for 4K; their price function reads this.
+    durations[`${field.key}#height`] = height;
   }
   return durations;
 }

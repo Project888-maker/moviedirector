@@ -779,3 +779,6 @@ body:has(.dir-page) { height: 100dvh; display: flex; flex-direction: column; ove
 .pg-goal.live.mirror { background: linear-gradient(135deg, #0f172a, #0e7490); border-color: #0f172a; }
 /* Webcam views are flipped like a selfie camera; the saved recording is not. */
 .mirror-preview.selfie video, .mirror-stage.selfie > video:first-child { transform: scaleX(-1); }
+/* Long titles with a badge wrap as whole words on narrow goal cards. */
+.pg-goal b { flex-wrap: wrap; row-gap: 4px; }
+.pg-goal b .tier-pill { flex: none; }

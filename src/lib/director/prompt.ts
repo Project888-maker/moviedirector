@@ -31,14 +31,15 @@ function describePrice(tool: Tool): string {
   const resolution = tool.fields.find((f) => f.key === "resolution" && f.type === "select");
   const options = resolution?.type === "select" ? resolution.options.map((o) => o.value) : [undefined];
   const measured = measuredFields(tool)[0];
+  // Length-priced tools are quoted per minute of media (some bill per started minute); others per output second.
   const perUnit = (res?: string) => {
     const values: Values = { ...base, ...(res ? { resolution: res } : {}) };
     if (base.duration !== undefined) values.duration = 1;
-    const durations = measured ? { [measured.key]: 1 } : {};
+    const durations = measured ? { [measured.key]: 60 } : {};
     return tool.cost(values, durations) * MC_PER_USD * (1 + markupPercent / 100);
   };
   if (base.duration !== undefined || measured) {
-    const unit = measured ? `per second of ${measured.label.toLowerCase()}` : "per second of output";
+    const unit = measured ? `per minute of ${measured.label.toLowerCase()}` : "per second of output";
     return options.map((r) => `${usd(perUnit(r))}${r ? ` at ${r}` : ""}`).join(", ") + ` ${unit}`;
   }
   return `about ${formatUsd(typicalPriceMc(tool, markupPercent))} with default settings`;

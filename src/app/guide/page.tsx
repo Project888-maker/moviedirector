@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { formatUsd, markupPercent } from "@/lib/pricing";
-import { GOALS, TIERS, TOOLS, defaultValues, findTool, typicalPriceMc, userPriceMc, type Durations, type Values } from "@/lib/tools";
+import { GOALS, TIERS, TOOLS, defaultValues, findTool, priceLabel, userPriceMc, type Durations, type Values } from "@/lib/tools";
 
 export const metadata: Metadata = { title: "Guide · AI Movie Director" };
 
@@ -174,7 +174,7 @@ export default function GuidePage() {
                   <span className={`tier-pill ${tool.tier}`}>{TIERS[tool.tier].label}</span>
                   <b>{tool.name}</b>
                   <span className="muted">{tool.bestFor}</span>
-                  <span className="tool-row-price">about {formatUsd(typicalPriceMc(tool, markupPercent))}</span>
+                  <span className="tool-row-price">{priceLabel(tool, markupPercent, formatUsd)}</span>
                 </Link>
               ))}
             </div>
