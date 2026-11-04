@@ -73,6 +73,9 @@ export function ResultVideo({ url }: { url: string }) {
   const onError = () => {
     const video = ref.current;
     const code = video?.error?.code ?? 0;
+    // Decide now whether to resume playing; pause events around an error are unreliable.
+    if (video && !video.paused) wasPlaying.current = true;
+    setReloading(true);
     report("error", url, { code, kind: MEDIA_ERRORS[code] ?? "unknown", attempt: attempts.current, at: resumeAt.current });
     clearSlow();
     if (attempts.current < AUTO_RETRIES) {
@@ -87,8 +90,9 @@ export function ResultVideo({ url }: { url: string }) {
   const onLoadedMetadata = () => {
     const video = ref.current;
     if (!video) return;
+    if (!reloadingRef.current) return;
     if (resumeAt.current > 0.5) video.currentTime = resumeAt.current;
-    if (reloadingRef.current && wasPlaying.current) video.play().catch(() => {});
+    if (wasPlaying.current) video.play().catch(() => {});
     setReloading(false);
   };
 
@@ -107,7 +111,7 @@ export function ResultVideo({ url }: { url: string }) {
         playsInline
         preload="metadata"
         onLoadedMetadata={onLoadedMetadata}
-        onTimeUpdate={() => { if (ref.current) resumeAt.current = ref.current.currentTime; }}
+        onTimeUpdate={() => { if (ref.current && !reloadingRef.current) resumeAt.current = ref.current.currentTime; }}
         onPlay={() => { wasPlaying.current = true; }}
         onPause={() => { if (!reloadingRef.current) wasPlaying.current = false; }}
         onWaiting={startSlowTimer}
