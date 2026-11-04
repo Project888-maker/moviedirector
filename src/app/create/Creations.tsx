@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { PublicJob } from "@/lib/jobs";
 import { TIERS, findTool, type OutputType } from "@/lib/tools";
 import { formatUsd } from "@/lib/pricing";
+import { ResultVideo } from "./ResultVideo";
 
 /** Where a finished result can go next, so creators can chain tools into a movie. */
 export const NEXT_STEPS: Record<OutputType, { label: string; toolId: string; field: string }[]> = {
@@ -108,7 +109,7 @@ export function JobCard({ job, onUse }: { job: PublicJob; onUse: UseResult }) {
       {job.status === "done" && url && (
         <>
           <div className="job-media">
-            {job.outputType === "video" && <video src={`${url}#t=0.1`} controls playsInline preload="metadata" />}
+            {job.outputType === "video" && <ResultVideo url={url} />}
             {job.outputType === "audio" && <audio src={url} controls preload="metadata" />}
             {job.outputType === "image" && (
               // eslint-disable-next-line @next/next/no-img-element

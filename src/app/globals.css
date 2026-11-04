@@ -496,6 +496,11 @@ input[type="range"]:focus { outline: none; }
 .job-error { margin: 0; color: #9f1239; background: #fff1f2; border-radius: 8px; padding: 10px 12px; font-size: 14px; }
 .job-media video, .job-media img { display: block; width: 100%; max-height: 520px; object-fit: contain; background: #0a0a0a; border-radius: 8px; }
 .job-media audio { width: 100%; }
+.result-video { position: relative; }
+.result-video-note { position: absolute; left: 8px; right: 8px; bottom: 52px; display: flex; align-items: center; gap: 8px; background: rgba(10,10,10,.82); color: #fff; font-size: 13px; padding: 8px 10px; border-radius: 8px; pointer-events: auto; }
+.result-video-note .btn { margin-left: auto; }
+.result-video-fail { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; padding: 16px; background: rgba(10,10,10,.9); color: #fff; border-radius: 8px; font-size: 14px; }
+.result-video-fail span { color: #d4d4d8; }
 .job-thumbs { display: flex; gap: 6px; }
 .job-thumbs button { padding: 0; width: 56px; height: 56px; border-radius: 6px; overflow: hidden; background: none; border: 2px solid transparent; }
 .job-thumbs button.on { border-color: var(--accent); }
