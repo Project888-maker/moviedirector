@@ -22,7 +22,7 @@ import {
   type Values,
 } from "@/lib/tools";
 import { JobCard, useJobs, type UseResult } from "./Creations";
-import { readDuration, uploadFile } from "./upload";
+import { previewUrl, readDuration, uploadFile, type UploadProgress } from "./upload";
 
 type Props = {
   markup: number;
@@ -66,6 +66,8 @@ export default function Playground({ markup, signedIn, initialBalanceMc, initial
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<{ message: string; topUp?: boolean } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // What happened after the last Generate press, shown right under the button.
+  const [started, setStarted] = useState<{ job: PublicJob; duplicate: boolean; toolName: string; time: string } | null>(null);
   const [balanceMc, setBalanceMc] = useState(initialBalanceMc);
   const [jobs, setJobs] = useJobs(initialJobs);
   const formRef = useRef<HTMLElement>(null);
@@ -118,6 +120,7 @@ export default function Playground({ markup, signedIn, initialBalanceMc, initial
   }
 
   function setValue(key: string, value: Values[string]) {
+    setStarted(null);
     setValuesByTool((all) => ({ ...all, [tool.id]: { ...(all[tool.id] ?? defaultValues(tool)), [key]: value } }));
   }
 
@@ -139,27 +142,53 @@ export default function Playground({ markup, signedIn, initialBalanceMc, initial
 
   const uploading = Object.values(busy).some(Boolean);
 
-  async function generate() {
+  /** Brings a result card into view and flashes it, so it's obvious where the job went. */
+  function showJob(id: string) {
+    setTimeout(() => {
+      const el = document.getElementById(`job-${id}`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("flash");
+      setTimeout(() => el.classList.remove("flash"), 2400);
+    }, 80);
+  }
+
+  async function generate(allowDuplicate = false) {
     if (!signedIn) {
       router.push("/signup");
       return;
     }
+    if (submitting) return;
     setError(null);
+    setStarted(null);
     setSubmitting(true);
     const res = await fetch("/api/jobs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ toolId: tool.id, values }),
+      body: JSON.stringify({ toolId: tool.id, values, allowDuplicate }),
     }).catch(() => null);
     const data = await res?.json().catch(() => null);
     setSubmitting(false);
+    if (res?.status === 409 && data?.duplicate && data.job) {
+      const job = data.job as PublicJob;
+      setJobs((list) => (list.some((j) => j.id === job.id) ? list : [job, ...list]));
+      setStarted({ job, duplicate: true, toolName: tool.name, time: tool.time });
+      showJob(job.id);
+      return;
+    }
     if (!res?.ok || !data?.job) {
       setError({ message: data?.error ?? "Couldn't start. Check your connection and try again.", topUp: res?.status === 402 });
       return;
     }
-    setJobs((list) => [data.job as PublicJob, ...list]);
+    const job = data.job as PublicJob;
+    setJobs((list) => [job, ...list]);
     if (typeof data.balanceMc === "number") setBalanceMc(data.balanceMc);
-    if (data.job.status === "failed") setError({ message: data.job.error });
+    if (job.status === "failed") {
+      setError({ message: job.error ?? "This didn't work. You have been refunded." });
+    } else {
+      setStarted({ job, duplicate: false, toolName: tool.name, time: tool.time });
+      showJob(job.id);
+    }
     router.refresh();
   }
 
@@ -258,9 +287,29 @@ export default function Playground({ markup, signedIn, initialBalanceMc, initial
               {error.message} {error.topUp && <Link href="/billing">Top up</Link>}
             </p>
           )}
-          <button type="button" className="btn primary pg-generate" onClick={generate} disabled={submitting || uploading || (signedIn && !canAfford)}>
-            {!signedIn ? "Sign up to generate" : submitting ? "Starting…" : uploading ? "Uploading…" : `Generate${price.mc != null ? ` · ${formatUsd(price.mc)}` : ""}`}
+          <button type="button" className="btn primary pg-generate" onClick={() => generate()} disabled={submitting || uploading || (signedIn && !canAfford)}>
+            {!signedIn ? "Sign up to generate" : submitting ? "Starting… checking your file" : uploading ? "Uploading…" : `Generate${price.mc != null ? ` · ${formatUsd(price.mc)}` : ""}`}
           </button>
+          {started && started.job.toolId === tool.id && (
+            <div className={`pg-started ${started.duplicate ? "dup" : ""}`} role="status">
+              <span className="spinner" aria-hidden="true" />
+              <div>
+                <b>{started.duplicate ? "Already generating this exact one" : `Started: ${started.toolName} is generating`}</b>
+                <span>
+                  {started.duplicate ? "You were not charged again. " : ""}
+                  Usually {started.time}. You can leave this page; it saves to <Link href="/library">My creations</Link>.
+                </span>
+                <div className="row">
+                  <button type="button" className="btn small" onClick={() => showJob(started.job.id)}>Show it</button>
+                  {started.duplicate && (
+                    <button type="button" className="btn small" onClick={() => generate(true)} disabled={submitting}>
+                      Make another copy · {price.mc != null ? formatUsd(price.mc) : ""}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
           <p className="hint">If anything fails, the full price goes back to your balance automatically.</p>
         </section>
 
@@ -289,6 +338,8 @@ export default function Playground({ markup, signedIn, initialBalanceMc, initial
 }
 
 // ------------------------------------------------------------------ form fields
+
+const mb = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB`;
 
 function FieldInput({
   field,
@@ -365,6 +416,7 @@ function MediaInput({
   durations: Record<string, number | null>;
 }) {
   const [uploading, setUploading] = useState(0);
+  const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const max = field.max ?? 1;
@@ -379,12 +431,13 @@ function MediaInput({
     onBusy(true);
     for (const file of picked) {
       try {
-        const url = await uploadFile(file);
+        const url = await uploadFile(file, setProgress);
         onChange(max > 1 ? [...latest.current, url].slice(0, max) : [url]);
       } catch (err) {
         setError(err instanceof Error ? err.message : "The upload failed.");
       } finally {
         setUploading((n) => n - 1);
+        setProgress(null);
       }
     }
     onBusy(false);
@@ -406,16 +459,27 @@ function MediaInput({
           <figure key={url} className="pg-media-item">
             {field.kind === "image" && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={siteUrl(url)} alt={`${field.label} ${i + 1}`} />
+              <img src={previewUrl(url, siteUrl)} alt={`${field.label} ${i + 1}`} />
             )}
-            {field.kind === "video" && <video src={siteUrl(url)} muted playsInline controls preload="metadata" />}
-            {field.kind === "audio" && <audio src={siteUrl(url)} controls preload="metadata" />}
+            {field.kind === "video" && <video src={previewUrl(url, siteUrl)} muted playsInline controls preload="metadata" />}
+            {field.kind === "audio" && <audio src={previewUrl(url, siteUrl)} controls preload="metadata" />}
             {max > 1 && <span className="pg-ref-tag">@{i + 1}</span>}
             <button type="button" className="pg-remove" onClick={() => remove(url)} aria-label="Remove">×</button>
           </figure>
         ))}
         {Array.from({ length: uploading }, (_, i) => (
-          <div key={`up-${i}`} className="pg-media-item uploading"><span className="spinner" aria-hidden="true" /> Uploading…</div>
+          <div key={`up-${i}`} className="pg-media-item uploading">
+            {i === 0 && progress && progress.total > 0 ? (
+              <div className="upload-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((progress.loaded / progress.total) * 100)}>
+                <b>Uploading… {Math.round((progress.loaded / progress.total) * 100)}%</b>
+                <span className="muted">{mb(progress.loaded)} of {mb(progress.total)}</span>
+                <div className="upload-bar"><i style={{ width: `${(progress.loaded / progress.total) * 100}%` }} /></div>
+                {progress.loaded >= progress.total && <span className="muted">Finishing…</span>}
+              </div>
+            ) : (
+              <><span className="spinner" aria-hidden="true" /> Uploading…</>
+            )}
+          </div>
         ))}
         {canAdd && (
           <button type="button" className="pg-drop" onClick={() => inputRef.current?.click()}

@@ -87,7 +87,7 @@ export function JobCard({ job, onUse }: { job: PublicJob; onUse: UseResult }) {
   const steps = NEXT_STEPS[job.outputType as OutputType] ?? [];
 
   return (
-    <article className={`job-card ${job.status}`}>
+    <article id={`job-${job.id}`} className={`job-card ${job.status}`}>
       <header>
         <div>
           <b>{tool?.name ?? job.toolId}</b>

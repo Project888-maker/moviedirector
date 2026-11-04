@@ -3,6 +3,30 @@
 
 const SERVER_UPLOAD_LIMIT = 4 * 1024 * 1024;
 
+export type UploadProgress = { loaded: number; total: number };
+
+// Files picked on this device, so previews show instantly instead of re-downloading them from fal.
+const localPreviews = new Map<string, string>();
+
+/** The best URL to preview an input: the local copy if it was uploaded from here, else via our domain. */
+export function previewUrl(url: string, site: (u: string) => string): string {
+  return localPreviews.get(url) ?? site(url);
+}
+
+/** PUT with upload progress (fetch can't report it). Resolves true when the server accepted the file. */
+function putWithProgress(url: string, file: File, contentType: string, onProgress?: (p: UploadProgress) => void): Promise<boolean> {
+  return new Promise((resolve) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", url);
+    xhr.setRequestHeader("Content-Type", contentType);
+    xhr.upload.onprogress = (e) => onProgress?.({ loaded: e.loaded, total: e.lengthComputable ? e.total : file.size });
+    xhr.onload = () => resolve(xhr.status >= 200 && xhr.status < 300);
+    xhr.onerror = () => resolve(false);
+    xhr.ontimeout = () => resolve(false);
+    xhr.send(file);
+  });
+}
+
 async function serverUpload(file: File): Promise<string> {
   const body = new FormData();
   body.append("file", file);
@@ -12,7 +36,18 @@ async function serverUpload(file: File): Promise<string> {
   return data.url;
 }
 
-export async function uploadFile(file: File): Promise<string> {
+export async function uploadFile(file: File, onProgress?: (p: UploadProgress) => void): Promise<string> {
+  const url = await upload(file, onProgress);
+  try {
+    localPreviews.set(url, URL.createObjectURL(file));
+  } catch {
+    // Previews fall back to the uploaded copy.
+  }
+  return url;
+}
+
+async function upload(file: File, onProgress?: (p: UploadProgress) => void): Promise<string> {
+  onProgress?.({ loaded: 0, total: file.size });
   const contentType = file.type || "application/octet-stream";
   const res = await fetch("/api/upload/initiate", {
     method: "POST",
@@ -22,8 +57,7 @@ export async function uploadFile(file: File): Promise<string> {
   const data = await res.json().catch(() => null);
   if (res.status === 400) throw new Error(data?.error ?? "This file can't be uploaded.");
   if (res.ok && data?.uploadUrl) {
-    const put = await fetch(data.uploadUrl, { method: "PUT", headers: { "Content-Type": contentType }, body: file }).catch(() => null);
-    if (put?.ok) return data.fileUrl;
+    if (await putWithProgress(data.uploadUrl, file, contentType, onProgress)) return data.fileUrl;
   }
   if (file.size <= SERVER_UPLOAD_LIMIT) return serverUpload(file);
   throw new Error("The upload failed. Check your connection and try again.");

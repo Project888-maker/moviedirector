@@ -496,6 +496,15 @@ input[type="range"]:focus { outline: none; }
 .job-error { margin: 0; color: #9f1239; background: #fff1f2; border-radius: 8px; padding: 10px 12px; font-size: 14px; }
 .job-media video, .job-media img { display: block; width: 100%; max-height: 520px; object-fit: contain; background: #0a0a0a; border-radius: 8px; }
 .job-media audio { width: 100%; }
+.pg-started { display: flex; gap: 12px; align-items: flex-start; margin-top: 12px; padding: 12px 14px; border-radius: 10px; background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; font-size: 14px; }
+.pg-started.dup { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+.pg-started > div { display: flex; flex-direction: column; gap: 4px; }
+.pg-started .row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.job-card.flash { animation: job-flash 2.4s ease-out; }
+@keyframes job-flash { 0%, 30% { box-shadow: 0 0 0 3px var(--accent); } 100% { box-shadow: 0 0 0 0 transparent; } }
+.upload-progress { display: flex; flex-direction: column; gap: 4px; width: 100%; max-width: 280px; font-size: 14px; text-align: center; }
+.upload-bar { height: 6px; background: var(--accent-soft); border-radius: 999px; overflow: hidden; }
+.upload-bar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; transition: width .2s; }
 .result-video { position: relative; min-height: 180px; background: #0a0a0a; border-radius: 8px; }
 .result-video-note { position: absolute; left: 8px; right: 8px; bottom: 52px; display: flex; align-items: center; gap: 8px; background: rgba(10,10,10,.82); color: #fff; font-size: 13px; padding: 8px 10px; border-radius: 8px; pointer-events: auto; }
 .result-video-note .btn { margin-left: auto; }

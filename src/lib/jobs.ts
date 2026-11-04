@@ -16,6 +16,25 @@ export class JobError extends Error {
   }
 }
 
+/** Thrown when the same job (same tool, same inputs) is still running, so a second click doesn't charge twice. */
+export class DuplicateJobError extends JobError {
+  constructor(public existing: Job) {
+    super(409, "This exact job is already generating. It will appear in Your creations.");
+  }
+}
+
+/** How long an identical, still-running job blocks a repeat. */
+const DUPLICATE_WINDOW_MS = 15 * 60_000;
+
+/** JSON with sorted keys, so inputs compare equal however Postgres ordered them. */
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((k) => `${JSON.stringify(k)}:${stableJson((value as Record<string, unknown>)[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(value ?? null);
+}
+
 function falHeaders() {
   return { Authorization: `Key ${process.env.FAL_KEY}`, "Content-Type": "application/json" };
 }
@@ -73,10 +92,27 @@ export function quote(tool: Tool, values: Values, durations: Durations) {
 }
 
 /** Debits the user, records the job and submits it to fal. Refunds if fal refuses it. */
-export async function createJob(userId: string, tool: Tool, values: Values, chatId?: string): Promise<Job> {
+export async function createJob(
+  userId: string,
+  tool: Tool,
+  values: Values,
+  chatId?: string,
+  opts: { allowDuplicate?: boolean } = {},
+): Promise<Job> {
   const durations = await measure(tool, values);
   const { falCostMc, chargedMc } = quote(tool, values, durations);
   const input = tool.input(values, durations);
+
+  if (!opts.allowDuplicate) {
+    const running = await db.job.findMany({
+      where: { userId, toolId: tool.id, status: { in: ["queued", "running"] }, createdAt: { gte: new Date(Date.now() - DUPLICATE_WINDOW_MS) } },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    });
+    const key = stableJson(input);
+    const same = running.find((j) => stableJson(j.input) === key);
+    if (same) throw new DuplicateJobError(same);
+  }
   const prompt = typeof values.prompt === "string" ? values.prompt : typeof values.text === "string" ? values.text : null;
 
   const job = await db.$transaction(async (tx) => {

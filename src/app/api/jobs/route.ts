@@ -4,12 +4,12 @@ import { db } from "@/lib/db";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { maintenanceBlock } from "@/lib/status";
 import { jsonError } from "@/lib/http";
-import { JobError, createJob, publicJob } from "@/lib/jobs";
+import { DuplicateJobError, JobError, createJob, publicJob } from "@/lib/jobs";
 import { findTool, validateValues } from "@/lib/tools";
 
 export const maxDuration = 60;
 
-const schema = z.object({ toolId: z.string(), values: z.record(z.unknown()) });
+const schema = z.object({ toolId: z.string(), values: z.record(z.unknown()), allowDuplicate: z.boolean().optional() });
 
 // Starts a generation from the Create playground. The price is charged up front and refunded if it fails.
 export async function POST(req: Request) {
@@ -25,10 +25,13 @@ export async function POST(req: Request) {
   if ("error" in checked) return jsonError(400, checked.error);
 
   try {
-    const job = await createJob(user.id, tool, checked.values);
+    const job = await createJob(user.id, tool, checked.values, undefined, { allowDuplicate: parsed.data.allowDuplicate });
     const balance = await db.user.findUnique({ where: { id: user.id }, select: { balanceMc: true } });
     return NextResponse.json({ job: publicJob(job), balanceMc: balance?.balanceMc });
   } catch (err) {
+    if (err instanceof DuplicateJobError) {
+      return NextResponse.json({ error: err.message, duplicate: true, job: publicJob(err.existing) }, { status: 409 });
+    }
     if (err instanceof JobError) return jsonError(err.status, err.message);
     console.error("create job failed", err);
     return jsonError(500, "Something went wrong. You have not been charged.");
