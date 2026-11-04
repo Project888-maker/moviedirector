@@ -6,7 +6,8 @@ import type { PublicJob } from "@/lib/jobs";
 import { TIERS, findTool, type OutputType } from "@/lib/tools";
 import { formatUsd } from "@/lib/pricing";
 import { ResultVideo } from "./ResultVideo";
-import { downloadName, siteUrl } from "@/lib/media";
+import { siteUrl } from "@/lib/media";
+import { DownloadButton } from "./DownloadButton";
 
 /** Where a finished result can go next, so creators can chain tools into a movie. */
 export const NEXT_STEPS: Record<OutputType, { label: string; toolId: string; field: string }[]> = {
@@ -128,7 +129,7 @@ export function JobCard({ job, onUse }: { job: PublicJob; onUse: UseResult }) {
             </div>
           )}
           <div className="job-actions">
-            <a className="btn small" href={siteUrl(url)} download={downloadName(url)}>Download</a>
+            <DownloadButton url={url} />
             {steps.map((step) => (
               <button key={step.label} type="button" className="btn small" onClick={() => onUse(step.toolId, step.field, url)}>
                 {step.label} →

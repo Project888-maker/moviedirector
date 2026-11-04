@@ -11,7 +11,8 @@ import type { Attachment, DirectorEvent, Effort } from "@/lib/director/agent";
 import type { TimelineItem, TimelinePart } from "@/lib/director/timeline";
 import { JobCard, NEXT_STEPS } from "../create/Creations";
 import { uploadFile } from "../create/upload";
-import { downloadName, siteUrl } from "@/lib/media";
+import { siteUrl } from "@/lib/media";
+import { DownloadButton } from "../create/DownloadButton";
 import Markdown from "./Markdown";
 
 type ChatSummary = { id: string; title: string; updatedAt: string };
@@ -679,7 +680,7 @@ export default function Director({
             {preview.kind === "audio" && <audio src={siteUrl(preview.url)} controls autoPlay />}
             <div className="dir-lightbox-actions">
               <button type="button" className="btn primary" onClick={() => attach(preview.url, preview.kind, "from this chat")}>Use in message</button>
-              <a className="btn" href={siteUrl(preview.url)} download={downloadName(preview.url)}>Download</a>
+              <DownloadButton url={preview.url} className="btn" />
               <button type="button" className="btn" onClick={() => setPreview(null)}>Close</button>
             </div>
           </div>
