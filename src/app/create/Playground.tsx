@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { PublicJob } from "@/lib/jobs";
+import { siteUrl } from "@/lib/media";
 import { MC_PER_USD, formatUsd } from "@/lib/pricing";
 import {
   GOALS,
@@ -405,10 +406,10 @@ function MediaInput({
           <figure key={url} className="pg-media-item">
             {field.kind === "image" && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={url} alt={`${field.label} ${i + 1}`} />
+              <img src={siteUrl(url)} alt={`${field.label} ${i + 1}`} />
             )}
-            {field.kind === "video" && <video src={url} muted playsInline controls preload="metadata" />}
-            {field.kind === "audio" && <audio src={url} controls preload="metadata" />}
+            {field.kind === "video" && <video src={siteUrl(url)} muted playsInline controls preload="metadata" />}
+            {field.kind === "audio" && <audio src={siteUrl(url)} controls preload="metadata" />}
             {max > 1 && <span className="pg-ref-tag">@{i + 1}</span>}
             <button type="button" className="pg-remove" onClick={() => remove(url)} aria-label="Remove">×</button>
           </figure>

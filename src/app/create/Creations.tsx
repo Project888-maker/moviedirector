@@ -6,6 +6,7 @@ import type { PublicJob } from "@/lib/jobs";
 import { TIERS, findTool, type OutputType } from "@/lib/tools";
 import { formatUsd } from "@/lib/pricing";
 import { ResultVideo } from "./ResultVideo";
+import { downloadName, siteUrl } from "@/lib/media";
 
 /** Where a finished result can go next, so creators can chain tools into a movie. */
 export const NEXT_STEPS: Record<OutputType, { label: string; toolId: string; field: string }[]> = {
@@ -109,11 +110,11 @@ export function JobCard({ job, onUse }: { job: PublicJob; onUse: UseResult }) {
       {job.status === "done" && url && (
         <>
           <div className="job-media">
-            {job.outputType === "video" && <ResultVideo url={url} />}
-            {job.outputType === "audio" && <audio src={url} controls preload="metadata" />}
+            {job.outputType === "video" && <ResultVideo url={siteUrl(url)} />}
+            {job.outputType === "audio" && <audio src={siteUrl(url)} controls preload="metadata" />}
             {job.outputType === "image" && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={url} alt={job.prompt ?? "Generated image"} />
+              <img src={siteUrl(url)} alt={job.prompt ?? "Generated image"} />
             )}
           </div>
           {job.outputUrls.length > 1 && (
@@ -121,13 +122,13 @@ export function JobCard({ job, onUse }: { job: PublicJob; onUse: UseResult }) {
               {job.outputUrls.map((u, i) => (
                 <button key={u} type="button" className={i === selected ? "on" : ""} onClick={() => setSelected(i)} aria-label={`Show image ${i + 1}`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={u} alt="" />
+                  <img src={siteUrl(u)} alt="" />
                 </button>
               ))}
             </div>
           )}
           <div className="job-actions">
-            <a className="btn small" href={url} target="_blank" rel="noreferrer" download>Download</a>
+            <a className="btn small" href={siteUrl(url)} download={downloadName(url)}>Download</a>
             {steps.map((step) => (
               <button key={step.label} type="button" className="btn small" onClick={() => onUse(step.toolId, step.field, url)}>
                 {step.label} →

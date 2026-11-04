@@ -11,6 +11,7 @@ import type { Attachment, DirectorEvent, Effort } from "@/lib/director/agent";
 import type { TimelineItem, TimelinePart } from "@/lib/director/timeline";
 import { JobCard, NEXT_STEPS } from "../create/Creations";
 import { uploadFile } from "../create/upload";
+import { downloadName, siteUrl } from "@/lib/media";
 import Markdown from "./Markdown";
 
 type ChatSummary = { id: string; title: string; updatedAt: string };
@@ -87,9 +88,9 @@ const ICONS = {
 function Thumb({ url, kind }: { url: string; kind: Attachment["kind"] }) {
   if (kind === "image") {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt="" />;
+    return <img src={siteUrl(url)} alt="" />;
   }
-  if (kind === "video") return <video src={`${url}#t=0.1`} muted playsInline preload="metadata" />;
+  if (kind === "video") return <video src={`${siteUrl(url)}#t=0.1`} muted playsInline preload="metadata" />;
   return <span className="dir-audio-thumb"><Icon d="M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm12-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></span>;
 }
 
@@ -672,13 +673,13 @@ export default function Director({
           <div className="dir-lightbox-inner" onClick={(e) => e.stopPropagation()}>
             {preview.kind === "image" && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={preview.url} alt="" />
+              <img src={siteUrl(preview.url)} alt="" />
             )}
-            {preview.kind === "video" && <video src={preview.url} controls autoPlay playsInline />}
-            {preview.kind === "audio" && <audio src={preview.url} controls autoPlay />}
+            {preview.kind === "video" && <video src={siteUrl(preview.url)} controls autoPlay playsInline />}
+            {preview.kind === "audio" && <audio src={siteUrl(preview.url)} controls autoPlay />}
             <div className="dir-lightbox-actions">
               <button type="button" className="btn primary" onClick={() => attach(preview.url, preview.kind, "from this chat")}>Use in message</button>
-              <a className="btn" href={preview.url} target="_blank" rel="noreferrer">Download</a>
+              <a className="btn" href={siteUrl(preview.url)} download={downloadName(preview.url)}>Download</a>
               <button type="button" className="btn" onClick={() => setPreview(null)}>Close</button>
             </div>
           </div>

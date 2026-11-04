@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { siteUrl } from "@/lib/media";
 
 // TEMPORARY diagnostics: reads an MP4's headers from fal's CDN and reports codec, profile and layout.
 // Only fal.media URLs are accepted and only metadata is returned. Remove once the playback issue is fixed.
@@ -79,9 +80,14 @@ export async function GET(req: Request) {
   try { host = new URL(url).host; } catch {}
   if (!/(^|\.)fal\.media$/.test(host)) return NextResponse.json({ error: "fal.media URLs only" }, { status: 400 });
 
-  const head = await range(url, 0, 1024 * 1024 - 1);
+  const via = new URL(req.url).searchParams.get("via") === "site";
+  const started = Date.now();
+  const target = via ? new URL(siteUrl(url), req.url).toString() : url;
+  const head = await range(target, 0, 1024 * 1024 - 1);
   const total = Number(head.res.headers.get("content-range")?.split("/")[1] ?? head.res.headers.get("content-length") ?? 0);
   const info: Record<string, unknown> = {
+    fetched: via ? target : "fal direct",
+    firstMbMs: Date.now() - started,
     rangeStatus: head.res.status,
     contentType: head.res.headers.get("content-type"),
     acceptRanges: head.res.headers.get("accept-ranges"),
@@ -94,7 +100,7 @@ export async function GET(req: Request) {
   let moov = boxes(head.buf, 0, head.buf.length).find((b) => b.type === "moov" && b.start + b.size <= head.buf.length);
   if (!moov && total) {
     const tailStart = Math.max(0, total - 4 * 1024 * 1024);
-    const tail = await range(url, tailStart, total - 1);
+    const tail = await range(target, tailStart, total - 1);
     // Find the moov box in the tail by scanning for its type tag.
     const idx = tail.buf.indexOf(Buffer.from("moov"));
     if (idx >= 4) {
