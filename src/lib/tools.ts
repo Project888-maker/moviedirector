@@ -1112,7 +1112,7 @@ function withSubtitles(tool: Tool, languageField: string, codeKey: "eleven" | "h
   };
   return {
     ...tool,
-    tips: [...tool.tips, "Pick a subtitle style to get the dubbed video with subtitles burned in, in one step."],
+    tips: [...tool.tips.filter((t) => !/subtitles afterwards/i.test(t)), "Pick a subtitle style under “Burn in subtitles” to get the dubbed video with subtitles, in one step."],
     fields: [...tool.fields, field],
     cost: (v, d) => tool.cost(v, d) + thenCost(v, d),
     thenCost,
