@@ -327,7 +327,7 @@ async function finishWithoutFollowUp(job: Job, reason: string): Promise<Job> {
       data: {
         status: "done",
         outputUrls: follow.firstOutputs ?? [],
-        error: `${reason} Here is the result without it; ${formatUsd(follow.chargedMc)} for that step is back in your balance.`,
+        error: `${reason.trim().replace(/[.!]?$/, ".")} Here is the result without it; ${formatUsd(follow.chargedMc)} for that step is back in your balance.`,
         chargedMc: { decrement: follow.chargedMc },
         falCostMc: { decrement: follow.falCostMc },
         completedAt: new Date(),
