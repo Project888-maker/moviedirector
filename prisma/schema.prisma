@@ -81,6 +81,10 @@ model Job {
   // Set when the AI Director started the job; `notified` once the Director has been told it finished.
   chatId       String?
   notified     Boolean   @default(false)
+  // Optional second step run on the first result (e.g. burn in subtitles after a dub).
+  // `stage` is 2 while that step runs; `followUp` holds its tool, values, price share and fal URLs.
+  stage        Int       @default(1)
+  followUp     Json?
 
   @@index([userId, createdAt])
   @@index([chatId])

@@ -100,8 +100,16 @@ export function JobCard({ job, onUse }: { job: PublicJob; onUse: UseResult }) {
         <div className="job-wait">
           <span className="spinner" aria-hidden="true" />
           <div>
-            <b>{job.status === "queued" ? "Waiting in line…" : "Generating…"} <Elapsed since={job.createdAt} /></b>
-            <span className="muted">Usually {tool?.time ?? "a few minutes"}. You can keep working; it saves to My creations.</span>
+            <b>
+              {job.stage === 2
+                ? `Step 2 of 2: ${(findTool(job.followUpToolId ?? "")?.name ?? "finishing").toLowerCase()}…`
+                : job.status === "queued" ? "Waiting in line…" : job.followUpToolId ? "Step 1 of 2: generating…" : "Generating…"}{" "}
+              <Elapsed since={job.createdAt} />
+            </b>
+            <span className="muted">
+              {job.stage === 2 ? `Usually ${findTool(job.followUpToolId ?? "")?.time ?? "a few minutes"} more.` : `Usually ${tool?.time ?? "a few minutes"}.`}{" "}
+              You can keep working; it saves to My creations.
+            </span>
           </div>
         </div>
       )}
@@ -118,7 +126,17 @@ export function JobCard({ job, onUse }: { job: PublicJob; onUse: UseResult }) {
               <img src={siteUrl(url)} alt={job.prompt ?? "Generated image"} />
             )}
           </div>
-          {job.outputUrls.length > 1 && (
+          {job.status === "done" && job.error && <p className="job-note">{job.error}</p>}
+          {job.outputType === "video" && job.outputUrls.length > 1 && (
+            <div className="job-versions" role="group" aria-label="Version">
+              {job.outputUrls.map((u, i) => (
+                <button key={u} type="button" className={`btn small ${i === selected ? "on" : ""}`} onClick={() => setSelected(i)}>
+                  {i === 0 ? `With ${(findTool(job.followUpToolId ?? "")?.name ?? "extras").toLowerCase()}` : `Without`}
+                </button>
+              ))}
+            </div>
+          )}
+          {job.outputType === "image" && job.outputUrls.length > 1 && (
             <div className="job-thumbs">
               {job.outputUrls.map((u, i) => (
                 <button key={u} type="button" className={i === selected ? "on" : ""} onClick={() => setSelected(i)} aria-label={`Show image ${i + 1}`}>

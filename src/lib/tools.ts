@@ -63,7 +63,14 @@ export type Tool = {
   cost: (v: Values, d: Durations) => number;
   /** The request body sent to fal. */
   input: (v: Values, d: Durations) => Record<string, unknown>;
+  /** An optional second step run on this tool's result, already included in `cost`. */
+  then?: (v: Values) => FollowUpSpec | null;
+  /** fal's price in USD for just the second step (part of `cost`), for partial refunds. */
+  thenCost?: (v: Values, d: Durations) => number;
 };
+
+/** A second tool to run on the first result; `field` receives the result URL. */
+export type FollowUpSpec = { toolId: string; field: string; values: Values };
 
 export type Goal = { id: GoalId; title: string; description: string; icon: string };
 
@@ -1073,6 +1080,61 @@ export function validateValues(tool: Tool, raw: unknown): { values: Values } | {
 }
 
 /** Pulls the result file URLs out of a fal response. */
+// ------------------------------------------------------------------ subtitles add-on for dubs
+
+/** fal's VEED price for subtitles on a video of this length, in the same language (no translation). */
+function subtitleCost(preset: string, seconds: number, height: number) {
+  const minutes = Math.max(1, Math.ceil(seconds / 60));
+  const style = SUBTITLE_ANIMATED.includes(preset) ? 2 : 1;
+  return minutes * 0.1 * style * (height > 1080 ? 2 : 1);
+}
+
+/**
+ * Adds "Burn in subtitles" to a dubbing tool: after the dub finishes, VEED adds subtitles in the
+ * new language to the dubbed video. One price, one card, one result.
+ */
+function withSubtitles(tool: Tool, languageField: string, codeKey: "eleven" | "heygen"): Tool {
+  const field: Field = {
+    key: "add_subtitles",
+    type: "select",
+    label: "Burn in subtitles",
+    options: [
+      { value: "", label: "No subtitles" },
+      ...SUBTITLE_BASIC.map((value) => ({ value, label: `Yes · ${titleCase(value)} style` })),
+      ...SUBTITLE_ANIMATED.map((value) => ({ value, label: `Yes · ${titleCase(value)} style (animated, 2×)` })),
+    ],
+    default: "",
+    help: "Adds subtitles in the new language to the finished video, in one go. See every style in the Subtitles tool.",
+  };
+  const thenCost = (v: Values, d: Durations) => {
+    const preset = str(v, "add_subtitles");
+    return preset ? subtitleCost(preset, d.video_url ?? 0, d["video_url#height"] ?? 0) : 0;
+  };
+  return {
+    ...tool,
+    tips: [...tool.tips, "Pick a subtitle style to get the dubbed video with subtitles burned in, in one step."],
+    fields: [...tool.fields, field],
+    cost: (v, d) => tool.cost(v, d) + thenCost(v, d),
+    thenCost,
+    then: (v) => {
+      const preset = str(v, "add_subtitles");
+      if (!preset) return null;
+      const target = String(v[languageField] ?? "");
+      const spoken = LANGUAGES.find((l) => l[codeKey] === target)?.spoken ?? "";
+      return { toolId: "veed-subtitles", field: "video_url", values: { preset, language: spoken, translation_language: "" } };
+    },
+  };
+}
+
+for (const [id, languageField, codeKey] of [
+  ["eleven-dub", "target_lang", "eleven"],
+  ["heygen-translate", "output_language", "heygen"],
+  ["heygen-translate-pro", "output_language", "heygen"],
+] as const) {
+  const i = TOOLS.findIndex((t) => t.id === id);
+  if (i >= 0) TOOLS[i] = withSubtitles(TOOLS[i], languageField, codeKey);
+}
+
 export function extractOutputs(type: OutputType, data: unknown): string[] {
   const d = (data ?? {}) as Record<string, unknown>;
   const urlsOf = (value: unknown): string[] => {

@@ -88,7 +88,7 @@ export default function Playground({ markup, signedIn, initialBalanceMc, initial
       const url = (values[field.key] as string[])[0];
       if (!url || url in durations) continue;
       setDurations((d) => ({ ...d, [url]: null }));
-      readDuration(url, field.kind as "video" | "audio").then((seconds) => setDurations((d) => ({ ...d, [url]: seconds })));
+      readDuration(previewUrl(url, siteUrl), field.kind as "video" | "audio").then((seconds) => setDurations((d) => ({ ...d, [url]: seconds })));
     }
   }, [tool, values, durations]);
 
